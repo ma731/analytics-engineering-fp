@@ -27,7 +27,9 @@ daily_aggregated as (
         max(european_aqi) as max_european_aqi,
         percentile_cont(0.95) within group (order by european_aqi) as p95_european_aqi,
         count(*) as hourly_readings_count,
-        {{ dbt_utils.generate_surrogate_key(['location_id', 'cast(reading_timestamp as date)']) }} as air_quality_daily_sk
+        {{ dbt_utils.generate_surrogate_key(
+            ['location_id', 'cast(reading_timestamp as date)']
+        ) }} as air_quality_daily_sk
 
     from hourly
     where pm10 is not null

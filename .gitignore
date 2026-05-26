@@ -1,0 +1,10 @@
+target/
+dbt_packages/
+logs/
+data/
+.user.yml
+package-lock.yml
+__pycache__/
+*.pyc
+.claude/
+spain_cities.csv

@@ -1,0 +1,181 @@
+version: 2
+
+models:
+  - name: int_air_quality_daily
+    description: >
+      Daily aggregation of hourly air quality readings.
+      One row per city per day. Computes avg, max, and p95 for each pollutant
+      and the European AQI.
+    columns:
+      - name: air_quality_daily_sk
+        description: "Surrogate key derived from location_id and date."
+        tests:
+          - unique
+          - not_null
+      - name: location_id
+        description: "Foreign key to locations."
+        tests:
+          - not_null
+      - name: city_name
+        description: "City name."
+      - name: country_code
+        description: "ISO country code."
+      - name: air_quality_date
+        description: "Calendar date of the aggregated reading."
+        tests:
+          - not_null
+      - name: avg_pm10
+        description: "Daily average PM10 in ug/m3."
+      - name: max_pm10
+        description: "Daily maximum PM10 in ug/m3."
+      - name: p95_pm10
+        description: "95th percentile PM10 in ug/m3."
+      - name: avg_pm2_5
+        description: "Daily average PM2.5 in ug/m3."
+      - name: max_pm2_5
+        description: "Daily maximum PM2.5 in ug/m3."
+      - name: p95_pm2_5
+        description: "95th percentile PM2.5 in ug/m3."
+      - name: avg_carbon_monoxide
+        description: "Daily average carbon monoxide in ug/m3."
+      - name: max_carbon_monoxide
+        description: "Daily maximum carbon monoxide in ug/m3."
+      - name: avg_nitrogen_dioxide
+        description: "Daily average nitrogen dioxide in ug/m3."
+      - name: max_nitrogen_dioxide
+        description: "Daily maximum nitrogen dioxide in ug/m3."
+      - name: avg_ozone
+        description: "Daily average ozone in ug/m3."
+      - name: max_ozone
+        description: "Daily maximum ozone in ug/m3."
+      - name: avg_european_aqi
+        description: "Daily average European AQI."
+      - name: max_european_aqi
+        description: "Daily maximum European AQI."
+      - name: p95_european_aqi
+        description: "95th percentile European AQI."
+      - name: hourly_readings_count
+        description: "Number of hourly readings used in the aggregation."
+
+  - name: int_city_day_weather
+    description: >
+      Daily weather enriched with location metadata and derived boolean flags.
+      One row per city per day. Joins stg_weather_daily with stg_locations
+      and adds is_rainy, is_windy, is_hot, is_freezing flags plus temp_range_c.
+    columns:
+      - name: city_day_weather_sk
+        description: "Surrogate key derived from location_id and weather_date."
+        tests:
+          - unique
+          - not_null
+      - name: location_id
+        description: "Foreign key to locations."
+        tests:
+          - not_null
+      - name: city_name
+        description: "City name."
+      - name: country
+        description: "Country name."
+      - name: country_code
+        description: "ISO country code."
+      - name: latitude
+        description: "Latitude coordinate."
+      - name: longitude
+        description: "Longitude coordinate."
+      - name: timezone
+        description: "IANA timezone string."
+      - name: population
+        description: "City population."
+      - name: elevation
+        description: "Elevation in meters."
+      - name: weather_date
+        description: "Calendar date of the weather observation."
+        tests:
+          - not_null
+      - name: temperature_2m_max
+        description: "Maximum temperature at 2m in Celsius."
+      - name: temperature_2m_min
+        description: "Minimum temperature at 2m in Celsius."
+      - name: temperature_2m_mean
+        description: "Mean temperature at 2m in Celsius."
+      - name: precipitation_sum
+        description: "Total precipitation in mm."
+      - name: rain_sum
+        description: "Total rain in mm."
+      - name: snowfall_sum
+        description: "Total snowfall in cm."
+      - name: wind_speed_10m_max
+        description: "Maximum wind speed at 10m in km/h."
+      - name: temp_range_c
+        description: "Daily temperature range (max - min) in Celsius."
+      - name: is_rainy
+        description: "True if rain_sum > 1.0 mm."
+      - name: is_windy
+        description: "True if wind_speed_10m_max > 40 km/h."
+      - name: is_hot
+        description: "True if temperature_2m_max > 35 C."
+      - name: is_freezing
+        description: "True if temperature_2m_min < 0 C."
+      - name: extracted_at
+        description: "UTC timestamp of extraction."
+
+  - name: int_forecast_vs_actual
+    description: >
+      Alignment of forecast snapshots with actual weather observations.
+      One row per city per date per forecast extraction run.
+      Computes signed and absolute errors for temperature, precipitation,
+      and wind speed.
+    columns:
+      - name: forecast_vs_actual_sk
+        description: "Surrogate key derived from location_id, forecast_date, and extracted_at."
+        tests:
+          - unique
+          - not_null
+      - name: location_id
+        description: "Foreign key to locations."
+        tests:
+          - not_null
+      - name: city_name
+        description: "City name."
+      - name: country_code
+        description: "ISO country code."
+      - name: forecast_date
+        description: "Calendar date of the forecast/actual comparison."
+        tests:
+          - not_null
+      - name: forecast_extracted_at
+        description: "When the forecast was extracted."
+      - name: forecast_temp_max
+        description: "Forecasted max temperature in Celsius."
+      - name: forecast_temp_min
+        description: "Forecasted min temperature in Celsius."
+      - name: forecast_temp_mean
+        description: "Forecasted mean temperature in Celsius."
+      - name: forecast_precipitation
+        description: "Forecasted precipitation in mm."
+      - name: forecast_wind_speed_max
+        description: "Forecasted max wind speed in km/h."
+      - name: actual_temp_max
+        description: "Actual max temperature in Celsius."
+      - name: actual_temp_min
+        description: "Actual min temperature in Celsius."
+      - name: actual_temp_mean
+        description: "Actual mean temperature in Celsius."
+      - name: actual_precipitation
+        description: "Actual precipitation in mm."
+      - name: actual_wind_speed_max
+        description: "Actual max wind speed in km/h."
+      - name: temperature_max_error
+        description: "Forecast - actual max temperature error."
+      - name: temperature_min_error
+        description: "Forecast - actual min temperature error."
+      - name: temperature_mean_error
+        description: "Forecast - actual mean temperature error."
+      - name: precipitation_error
+        description: "Forecast - actual precipitation error."
+      - name: wind_speed_error
+        description: "Forecast - actual wind speed error."
+      - name: abs_temperature_error
+        description: "Absolute value of mean temperature error."
+      - name: abs_precipitation_error
+        description: "Absolute value of precipitation error."

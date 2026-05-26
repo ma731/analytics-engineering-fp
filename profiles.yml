@@ -1,0 +1,13 @@
+weather_analytics:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: weather.duckdb
+      schema: main
+      threads: 4
+    prod:
+      type: duckdb
+      path: weather_prod.duckdb
+      schema: main
+      threads: 4

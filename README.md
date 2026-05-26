@@ -122,7 +122,7 @@ See `Project_Instructions/open_meteo_group_project/TEAM_PLAYBOOK.md` for role ow
 
 | # | Role | Owner |
 |---|---|---|
-| 1 | Data Platform Lead | TBD |
-| 2 | Analytics Modeling Lead | TBD |
-| 3 | Dimensional & Data Quality Lead | TBD |
-| 4 | Dashboard & Reproducibility Lead | TBD |
+| 1 | Data Platform Lead | Diego |
+| 2 | Analytics Modeling Lead | Marco |
+| 3 | Dimensional & Data Quality Lead | Gloriana |
+| 4 | Dashboard & Reproducibility Lead | Shadi |

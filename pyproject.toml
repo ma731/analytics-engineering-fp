@@ -1,0 +1,35 @@
+[project]
+name = "weather-analytics"
+version = "0.1.0"
+description = "Open-Meteo weather analytics — group final project for Analytics Engineering @ IE."
+readme = "README.md"
+requires-python = ">=3.10,<3.13"
+dependencies = [
+    "dbt-core==1.8.0",
+    "dbt-duckdb==1.8.1",
+    "duckdb==0.10.2",
+    "polars>=0.20.0",
+    "pandas>=2.0.0",
+    "pyarrow",
+    "certifi",
+    "streamlit>=1.30.0",
+    "sqlfluff",
+    "sqlfluff-templater-dbt",
+    "ruff",
+    "pytest",
+    "ipykernel",
+]
+
+[tool.uv]
+package = false
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W", "B"]
+ignore = []
+
+[tool.pytest.ini_options]
+testpaths = ["tests_python"]

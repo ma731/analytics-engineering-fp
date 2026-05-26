@@ -1,0 +1,45 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# uv
+# (uv.lock IS committed — see playbook §2.9)
+
+# dbt
+target/
+dbt_packages/
+logs/
+.user.yml
+
+# DuckDB
+*.duckdb
+*.duckdb.wal
+
+# Raw API extracts — reproducible via scripts/extract_open_meteo.py
+data/raw/**/*.csv
+data/raw/**/*.parquet
+data/raw/**/*.json
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# Streamlit
+.streamlit/secrets.toml

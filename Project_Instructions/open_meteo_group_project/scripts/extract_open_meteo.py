@@ -30,7 +30,23 @@ GEOCODING_URL = "https://geocoding-api.open-meteo.com/v1/search"
 FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
 AIR_QUALITY_URL = "https://air-quality-api.open-meteo.com/v1/air-quality"
 
-DEFAULT_CITIES = ["Madrid", "Barcelona", "Valencia", "Sevilla", "Bilbao"]
+DEFAULT_CITIES = [
+    "Madrid", "Barcelona", "Valencia", "Sevilla", "Bilbao",
+    "Toledo", "Albacete", "Ciudad Real", "Cuenca", "Guadalajara",
+    "Almería", "Cádiz", "Córdoba", "Granada", "Huelva", "Jaén", "Málaga",
+    "Huesca", "Teruel", "Zaragoza",
+    "Oviedo", "Palma de Mallorca",
+    "San Sebastián", "Vitoria-Gasteiz", "Santander",
+    "Ávila", "Burgos", "León", "Palencia", "Salamanca",
+    "Segovia", "Soria", "Valladolid", "Zamora",
+    "Girona", "Lleida", "Tarragona",
+    "Badajoz", "Cáceres",
+    "A Coruña", "Lugo", "Ourense", "Pontevedra",
+    "Logroño", "Murcia", "Pamplona",
+    "Alicante", "Castellón de la Plana",
+    "Las Palmas de Gran Canaria", "Santa Cruz de Tenerife",
+    "Ceuta", "Melilla",
+]
 DEFAULT_DAILY_WEATHER_VARIABLES = [
     "temperature_2m_max",
     "temperature_2m_min",
@@ -91,17 +107,26 @@ def parse_args() -> argparse.Namespace:
     return args
 
 
-def get_json(url: str, params: dict[str, Any]) -> dict[str, Any]:
+def get_json(url: str, params: dict[str, Any], retries: int = 4) -> dict[str, Any]:
+    from urllib.error import HTTPError
+
     query_string = urlencode(params, doseq=True)
     request = Request(
         f"{url}?{query_string}",
         headers={"User-Agent": "dbt-ie-open-meteo-assignment/1.0"},
     )
 
-    with urlopen(request, timeout=30, context=get_ssl_context()) as response:
-        payload = response.read().decode("utf-8")
-
-    return json.loads(payload)
+    for attempt in range(retries):
+        try:
+            with urlopen(request, timeout=30, context=get_ssl_context()) as response:
+                payload = response.read().decode("utf-8")
+            return json.loads(payload)
+        except HTTPError as exc:
+            if exc.code < 500 or attempt == retries - 1:
+                raise
+            wait = 2 ** attempt
+            print(f"  HTTP {exc.code} — retrying in {wait}s...", file=sys.stderr)
+            time.sleep(wait)
 
 
 def get_ssl_context() -> ssl.SSLContext:

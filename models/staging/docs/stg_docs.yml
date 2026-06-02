@@ -1,0 +1,181 @@
+version: 2
+
+models:
+  - name: stg_locations
+    description: >
+      Staged city location metadata from the Open-Meteo Geocoding API.
+      One row per city. All fields cast to explicit types.
+    columns:
+      - name: location_sk
+        description: "Surrogate key derived from location_id."
+        tests:
+          - unique
+          - not_null
+      - name: location_id
+        description: "Natural key — unique identifier from the Geocoding API."
+        tests:
+          - unique
+          - not_null
+      - name: city_name
+        description: "City name."
+        tests:
+          - not_null
+      - name: country
+        description: "Country name."
+      - name: country_code
+        description: "ISO country code."
+      - name: admin1
+        description: "First-level administrative division."
+      - name: latitude
+        description: "Latitude coordinate."
+        tests:
+          - not_null
+      - name: longitude
+        description: "Longitude coordinate."
+        tests:
+          - not_null
+      - name: timezone
+        description: "IANA timezone string."
+      - name: elevation
+        description: "Elevation in meters above sea level."
+      - name: population
+        description: "City population."
+      - name: extracted_at
+        description: "UTC timestamp of extraction."
+        tests:
+          - not_null
+
+  - name: stg_weather_daily
+    description: >
+      Staged recent daily weather observations.
+      One row per city per day. Renamed and cast from raw source.
+    columns:
+      - name: weather_daily_sk
+        description: "Surrogate key derived from location_id and date."
+        tests:
+          - unique
+          - not_null
+      - name: location_id
+        description: "Foreign key to locations."
+        tests:
+          - not_null
+      - name: city_name
+        description: "City name."
+      - name: country_code
+        description: "ISO country code."
+      - name: weather_date
+        description: "Calendar date of the observation."
+        tests:
+          - not_null
+      - name: latitude
+        description: "Latitude coordinate."
+      - name: longitude
+        description: "Longitude coordinate."
+      - name: timezone
+        description: "IANA timezone string."
+      - name: temperature_2m_max
+        description: "Maximum temperature at 2m in Celsius."
+      - name: temperature_2m_min
+        description: "Minimum temperature at 2m in Celsius."
+      - name: temperature_2m_mean
+        description: "Mean temperature at 2m in Celsius."
+      - name: precipitation_sum
+        description: "Total precipitation in mm."
+      - name: rain_sum
+        description: "Total rain in mm."
+      - name: snowfall_sum
+        description: "Total snowfall in cm."
+      - name: wind_speed_10m_max
+        description: "Maximum wind speed at 10m in km/h."
+      - name: extracted_at
+        description: "UTC timestamp of extraction."
+
+  - name: stg_forecast_daily
+    description: >
+      Staged daily forecast data from the Open-Meteo Forecast API.
+      One row per city per forecast date per extraction run.
+    columns:
+      - name: forecast_daily_sk
+        description: "Surrogate key derived from location_id, date, and extracted_at."
+        tests:
+          - unique
+          - not_null
+      - name: location_id
+        description: "Foreign key to locations."
+        tests:
+          - not_null
+      - name: city_name
+        description: "City name."
+      - name: country_code
+        description: "ISO country code."
+      - name: forecast_date
+        description: "Forecasted calendar date."
+        tests:
+          - not_null
+      - name: latitude
+        description: "Latitude coordinate."
+      - name: longitude
+        description: "Longitude coordinate."
+      - name: timezone
+        description: "IANA timezone string."
+      - name: temperature_2m_max
+        description: "Forecasted max temperature at 2m in Celsius."
+      - name: temperature_2m_min
+        description: "Forecasted min temperature at 2m in Celsius."
+      - name: temperature_2m_mean
+        description: "Forecasted mean temperature at 2m in Celsius."
+      - name: precipitation_sum
+        description: "Forecasted total precipitation in mm."
+      - name: rain_sum
+        description: "Forecasted total rain in mm."
+      - name: snowfall_sum
+        description: "Forecasted total snowfall in cm."
+      - name: wind_speed_10m_max
+        description: "Forecasted max wind speed at 10m in km/h."
+      - name: extracted_at
+        description: "UTC timestamp when the forecast was extracted."
+        tests:
+          - not_null
+
+  - name: stg_air_quality_hourly
+    description: >
+      Staged hourly air quality readings from the Open-Meteo Air Quality API.
+      One row per city per hour.
+    columns:
+      - name: air_quality_hourly_sk
+        description: "Surrogate key derived from location_id and timestamp."
+        tests:
+          - unique
+          - not_null
+      - name: location_id
+        description: "Foreign key to locations."
+        tests:
+          - not_null
+      - name: city_name
+        description: "City name."
+      - name: country_code
+        description: "ISO country code."
+      - name: reading_timestamp
+        description: "Hourly timestamp of the air quality reading."
+        tests:
+          - not_null
+      - name: latitude
+        description: "Latitude coordinate."
+      - name: longitude
+        description: "Longitude coordinate."
+      - name: timezone
+        description: "IANA timezone string."
+      - name: pm10
+        description: "Particulate matter < 10 micrometers in ug/m3."
+      - name: pm2_5
+        description: "Particulate matter < 2.5 micrometers in ug/m3."
+      - name: carbon_monoxide
+        description: "Carbon monoxide concentration in ug/m3."
+      - name: nitrogen_dioxide
+        description: "Nitrogen dioxide concentration in ug/m3."
+      - name: ozone
+        description: "Ozone concentration in ug/m3."
+      - name: european_aqi
+        description: "European Air Quality Index value."
+      - name: extracted_at
+        description: "UTC timestamp of extraction."

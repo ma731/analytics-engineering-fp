@@ -1,0 +1,116 @@
+version: 2
+
+sources:
+  - name: open_meteo
+    description: "Raw data extracted from the Open-Meteo API via the extraction script."
+    schema: raw
+    tables:
+      - name: raw_locations
+        description: >
+          City metadata from the Open-Meteo Geocoding API.
+          Grain: one row per selected city.
+        columns:
+          - name: location_id
+            description: "Unique identifier for the location from the Geocoding API."
+          - name: city_name
+            description: "Name of the city."
+          - name: country
+            description: "Country name."
+          - name: country_code
+            description: "ISO country code."
+          - name: admin1
+            description: "First-level administrative division (e.g., region or state)."
+          - name: latitude
+            description: "Latitude coordinate of the city."
+          - name: longitude
+            description: "Longitude coordinate of the city."
+          - name: timezone
+            description: "IANA timezone string for the city."
+          - name: elevation
+            description: "Elevation in meters above sea level."
+          - name: population
+            description: "Population of the city."
+          - name: extracted_at
+            description: "UTC timestamp when the data was extracted."
+
+      - name: raw_weather_daily
+        description: >
+          Recent daily weather observations from the Open-Meteo Forecast API using past_days parameter.
+          Grain: one row per city per day.
+        columns:
+          - name: location_id
+            description: "Foreign key to raw_locations."
+          - name: city_name
+            description: "Name of the city."
+          - name: date
+            description: "Calendar date of the weather observation."
+          - name: temperature_2m_max
+            description: "Maximum temperature at 2m height in Celsius."
+          - name: temperature_2m_min
+            description: "Minimum temperature at 2m height in Celsius."
+          - name: temperature_2m_mean
+            description: "Mean temperature at 2m height in Celsius."
+          - name: precipitation_sum
+            description: "Total precipitation in mm."
+          - name: rain_sum
+            description: "Total rain in mm."
+          - name: snowfall_sum
+            description: "Total snowfall in cm."
+          - name: wind_speed_10m_max
+            description: "Maximum wind speed at 10m height in km/h."
+          - name: extracted_at
+            description: "UTC timestamp when the data was extracted."
+
+      - name: raw_forecast_daily
+        description: >
+          Forecasted daily weather from the Open-Meteo Forecast API.
+          Grain: one row per city per forecast date per extraction run.
+        columns:
+          - name: location_id
+            description: "Foreign key to raw_locations."
+          - name: city_name
+            description: "Name of the city."
+          - name: date
+            description: "Forecasted calendar date."
+          - name: temperature_2m_max
+            description: "Forecasted maximum temperature at 2m in Celsius."
+          - name: temperature_2m_min
+            description: "Forecasted minimum temperature at 2m in Celsius."
+          - name: temperature_2m_mean
+            description: "Forecasted mean temperature at 2m in Celsius."
+          - name: precipitation_sum
+            description: "Forecasted total precipitation in mm."
+          - name: rain_sum
+            description: "Forecasted total rain in mm."
+          - name: snowfall_sum
+            description: "Forecasted total snowfall in cm."
+          - name: wind_speed_10m_max
+            description: "Forecasted maximum wind speed at 10m in km/h."
+          - name: extracted_at
+            description: "UTC timestamp when the forecast was extracted."
+
+      - name: raw_air_quality_hourly
+        description: >
+          Hourly air quality data from the Open-Meteo Air Quality API.
+          Grain: one row per city per hour.
+        columns:
+          - name: location_id
+            description: "Foreign key to raw_locations."
+          - name: city_name
+            description: "Name of the city."
+          - name: timestamp
+            description: "Hourly timestamp of the air quality reading."
+          - name: pm10
+            description: "Particulate matter < 10 micrometers in ug/m3."
+          - name: pm2_5
+            description: "Particulate matter < 2.5 micrometers in ug/m3."
+          - name: carbon_monoxide
+            description: "Carbon monoxide concentration in ug/m3."
+          - name: nitrogen_dioxide
+            description: "Nitrogen dioxide concentration in ug/m3."
+          - name: ozone
+            description: "Ozone concentration in ug/m3."
+          - name: european_aqi
+            description: "European Air Quality Index value."
+          - name: extracted_at
+            description: "UTC timestamp when the data was extracted."

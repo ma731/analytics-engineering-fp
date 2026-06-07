@@ -1,0 +1,31 @@
+[project]
+name = "analytics-engineering-fp"
+version = "1.0.0"
+description = "Open-Meteo weather analytics: dbt + DuckDB pipeline with a Streamlit dashboard"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "dbt-core>=1.10.0",
+    "dbt-duckdb>=1.10.0",
+    "duckdb>=0.10.2",
+    "pandas",
+    "pyarrow",
+    "requests",
+    "streamlit>=1.30",
+    "plotly>=5.18",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "ruff",
+    "sqlfluff",
+    "sqlfluff-templater-dbt",
+    "pre-commit",
+]
+
+[tool.uv]
+package = false
+
+[tool.ruff]
+line-length = 100

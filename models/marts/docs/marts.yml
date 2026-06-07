@@ -1,0 +1,306 @@
+version: 2
+
+models:
+  - name: dim_location
+    description: >
+      Location dimension. One row per city selected for extraction.
+      Conformed dimension referenced by all fact tables via location_sk.
+    columns:
+      - name: location_sk
+        description: "Surrogate primary key for the location."
+        tests:
+          - unique
+          - not_null
+      - name: location_id
+        description: "Natural key from the Open-Meteo Geocoding API."
+        tests:
+          - unique
+          - not_null
+      - name: city_name
+        description: "City name."
+        tests:
+          - not_null
+      - name: country
+        description: "Country name."
+      - name: country_code
+        description: "ISO country code."
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["ES"]
+      - name: admin1
+        description: "First-level administrative division (region/state)."
+      - name: latitude
+        description: "Latitude coordinate."
+        tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: -90
+                max_value: 90
+      - name: longitude
+        description: "Longitude coordinate."
+        tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: -180
+                max_value: 180
+      - name: timezone
+        description: "IANA timezone string."
+      - name: elevation
+        description: "Elevation in meters above sea level."
+      - name: population
+        description: "City population."
+
+  - name: fct_city_weather_day
+    description: >
+      Daily weather fact. Grain: one row per city per calendar day.
+      Includes derived comfort/weather flags used by the dashboard.
+    columns:
+      - name: city_weather_day_sk
+        description: "Surrogate primary key (one row per city per day)."
+        tests:
+          - unique
+          - not_null
+      - name: location_sk
+        description: "Foreign key to dim_location."
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_location')
+                field: location_sk
+      - name: location_id
+        description: "Natural location key."
+        tests:
+          - not_null
+      - name: city_name
+        description: "City name."
+      - name: country_code
+        description: "ISO country code."
+      - name: weather_date
+        description: "Calendar date of the observation."
+        tests:
+          - not_null
+      - name: temperature_2m_max
+        description: "Maximum daily temperature at 2m in Celsius."
+        tests:
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: -40
+                max_value: 55
+      - name: temperature_2m_min
+        description: "Minimum daily temperature at 2m in Celsius."
+      - name: temperature_2m_mean
+        description: "Mean daily temperature at 2m in Celsius."
+      - name: temp_range_c
+        description: "Daily temperature range (max - min) in Celsius."
+      - name: precipitation_sum
+        description: "Total daily precipitation in mm."
+      - name: rain_sum
+        description: "Total daily rain in mm."
+      - name: snowfall_sum
+        description: "Total daily snowfall in cm."
+      - name: wind_speed_10m_max
+        description: "Maximum daily wind speed at 10m in km/h."
+      - name: is_rainy
+        description: "True when rain_sum > 1.0 mm."
+      - name: is_windy
+        description: "True when wind_speed_10m_max > 40 km/h."
+      - name: is_hot
+        description: "True when temperature_2m_max > 35 C."
+      - name: is_freezing
+        description: "True when temperature_2m_min < 0 C."
+      - name: is_comfortable
+        description: >
+          True when mean temperature is 18-26 C and the day is not rainy,
+          windy, hot, or freezing.
+
+  - name: fct_air_quality_city_day
+    description: >
+      Daily air quality fact. Grain: one row per city per calendar day,
+      aggregated from hourly readings.
+    columns:
+      - name: air_quality_city_day_sk
+        description: "Surrogate primary key (one row per city per day)."
+        tests:
+          - unique
+          - not_null
+      - name: location_sk
+        description: "Foreign key to dim_location."
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_location')
+                field: location_sk
+      - name: location_id
+        description: "Natural location key."
+        tests:
+          - not_null
+      - name: city_name
+        description: "City name."
+      - name: country_code
+        description: "ISO country code."
+      - name: air_quality_date
+        description: "Calendar date of the aggregated readings."
+        tests:
+          - not_null
+      - name: avg_pm10
+        description: "Daily average PM10 in ug/m3."
+      - name: max_pm10
+        description: "Daily maximum PM10 in ug/m3."
+      - name: p95_pm10
+        description: "95th percentile PM10 in ug/m3."
+      - name: avg_pm2_5
+        description: "Daily average PM2.5 in ug/m3."
+      - name: max_pm2_5
+        description: "Daily maximum PM2.5 in ug/m3."
+      - name: p95_pm2_5
+        description: "95th percentile PM2.5 in ug/m3."
+      - name: avg_carbon_monoxide
+        description: "Daily average carbon monoxide in ug/m3."
+      - name: max_carbon_monoxide
+        description: "Daily maximum carbon monoxide in ug/m3."
+      - name: avg_nitrogen_dioxide
+        description: "Daily average nitrogen dioxide in ug/m3."
+      - name: max_nitrogen_dioxide
+        description: "Daily maximum nitrogen dioxide in ug/m3."
+      - name: avg_ozone
+        description: "Daily average ozone in ug/m3."
+      - name: max_ozone
+        description: "Daily maximum ozone in ug/m3."
+      - name: avg_european_aqi
+        description: "Daily average European Air Quality Index."
+        tests:
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 0
+                max_value: 500
+      - name: max_european_aqi
+        description: "Daily maximum European AQI."
+      - name: p95_european_aqi
+        description: "95th percentile European AQI."
+      - name: hourly_readings_count
+        description: "Number of hourly readings aggregated into the day."
+
+  - name: fct_forecast_city_day
+    description: >
+      Forecast-vs-actual fact. Grain: one row per city per forecast date
+      per extraction run. Includes signed and absolute errors.
+    columns:
+      - name: forecast_city_day_sk
+        description: "Surrogate primary key."
+        tests:
+          - unique
+          - not_null
+      - name: location_sk
+        description: "Foreign key to dim_location."
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_location')
+                field: location_sk
+      - name: location_id
+        description: "Natural location key."
+        tests:
+          - not_null
+      - name: city_name
+        description: "City name."
+      - name: country_code
+        description: "ISO country code."
+      - name: forecast_date
+        description: "Calendar date of the forecast/actual comparison."
+        tests:
+          - not_null
+      - name: forecast_extracted_at
+        description: "Timestamp when the forecast snapshot was extracted."
+      - name: forecast_temp_mean
+        description: "Forecasted mean temperature in Celsius."
+      - name: actual_temp_mean
+        description: "Actual mean temperature in Celsius."
+      - name: temperature_mean_error
+        description: "Forecast minus actual mean temperature (signed error)."
+      - name: abs_temperature_error
+        description: "Absolute mean temperature error in Celsius."
+      - name: precipitation_error
+        description: "Forecast minus actual precipitation (signed error)."
+      - name: abs_precipitation_error
+        description: "Absolute precipitation error in mm."
+
+  - name: mart_city_weather_summary
+    description: >
+      City Comfort Index summary. Grain: one row per city, aggregated over
+      the full observation window. Powers the Streamlit dashboard.
+      comfort_score = 100 * comfortable_days / total_days.
+      overall_comfort_index = comfort_score - 0.5 * avg_air_quality_index.
+    columns:
+      - name: location_sk
+        description: "Surrogate primary key (one row per city)."
+        tests:
+          - unique
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_location')
+                field: location_sk
+      - name: location_id
+        description: "Natural location key."
+        tests:
+          - not_null
+      - name: city_name
+        description: "City name."
+        tests:
+          - not_null
+      - name: country
+        description: "Country name."
+      - name: country_code
+        description: "ISO country code."
+      - name: latitude
+        description: "Latitude coordinate (for the map)."
+      - name: longitude
+        description: "Longitude coordinate (for the map)."
+      - name: population
+        description: "City population."
+      - name: total_days
+        description: "Number of days observed for the city."
+      - name: first_date
+        description: "Earliest observation date."
+      - name: last_date
+        description: "Latest observation date."
+      - name: avg_temperature_c
+        description: "Average daily mean temperature in Celsius."
+      - name: avg_max_temperature_c
+        description: "Average daily maximum temperature in Celsius."
+      - name: avg_min_temperature_c
+        description: "Average daily minimum temperature in Celsius."
+      - name: total_precipitation_mm
+        description: "Total precipitation over the window in mm."
+      - name: comfortable_days
+        description: "Count of comfortable days."
+      - name: rainy_days
+        description: "Count of rainy days."
+      - name: windy_days
+        description: "Count of windy days."
+      - name: hot_days
+        description: "Count of extreme-heat days."
+      - name: freezing_days
+        description: "Count of freezing days."
+      - name: avg_air_quality_index
+        description: "Average daily European AQI over the window."
+      - name: avg_pm2_5
+        description: "Average daily PM2.5 in ug/m3."
+      - name: worst_air_quality_index
+        description: "Worst (max) European AQI observed."
+      - name: comfort_score
+        description: "Share of comfortable days, 0-100."
+        tests:
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 0
+                max_value: 100
+      - name: overall_comfort_index
+        description: "Comfort score adjusted down for poor air quality."

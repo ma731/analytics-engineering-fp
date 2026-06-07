@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  python-tests:
+    name: pytest (extraction)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install test deps
+        run: pip install pytest
+      - name: Run pytest
+        run: pytest tests_python/ -v
+
+  dbt-build:
+    name: dbt build + tests
+    runs-on: ubuntu-latest
+    env:
+      DBT_PROFILES_DIR: ${{ github.workspace }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: pip install -e .
+      - name: Load committed raw CSVs into DuckDB
+        run: python scripts/load_to_duckdb.py
+      - name: dbt deps
+        run: dbt deps
+      - name: dbt build (models + tests)
+        run: dbt build --target dev
+
+  lint:
+    name: sqlfluff + ruff (advisory)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install linters
+        run: pip install sqlfluff sqlfluff-templater-dbt dbt-duckdb ruff
+      - name: ruff (scripts + dashboard)
+        run: ruff check scripts streamlit_app tests_python
+      - name: sqlfluff lint (models)
+        run: sqlfluff lint models || true

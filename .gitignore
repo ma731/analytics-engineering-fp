@@ -1,7 +1,13 @@
 target/
 dbt_packages/
 logs/
-data/
+# Ignore everything in data/ (e.g. the built DuckDB file) but keep the raw CSVs
+data/*
+!data/raw/
+data/raw/*
+!data/raw/open_meteo/
+data/raw/open_meteo/*
+!data/raw/open_meteo/*.csv
 .user.yml
 package-lock.yml
 __pycache__/
@@ -9,3 +15,4 @@ __pycache__/
 .claude/
 spain_cities.csv
 dbt_internal_packages/
+.gstack/

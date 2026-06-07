@@ -16,3 +16,6 @@ __pycache__/
 spain_cities.csv
 dbt_internal_packages/
 .gstack/
+
+*.egg-info/
+.venv/

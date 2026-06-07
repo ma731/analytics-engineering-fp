@@ -1,8 +1,0 @@
-LICENSE
-README.md
-pyproject.toml
-analytics_engineering_fp.egg-info/PKG-INFO
-analytics_engineering_fp.egg-info/SOURCES.txt
-analytics_engineering_fp.egg-info/dependency_links.txt
-analytics_engineering_fp.egg-info/requires.txt
-analytics_engineering_fp.egg-info/top_level.txt

@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "analytics-engineering-fp"
 version = "1.0.0"
@@ -26,6 +30,11 @@ dev = [
 
 [tool.uv]
 package = false
+
+# This is an application, not an importable library: install dependencies only,
+# no package auto-discovery (avoids setuptools flat-layout discovery errors).
+[tool.setuptools]
+py-modules = []
 
 [tool.ruff]
 line-length = 100

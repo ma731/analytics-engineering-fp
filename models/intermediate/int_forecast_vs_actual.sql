@@ -41,8 +41,9 @@ aligned as (
 
     from forecast
     inner join actual
-        on forecast.location_id = actual.location_id
-        and forecast.forecast_date = actual.weather_date
+        on
+            forecast.location_id = actual.location_id
+            and forecast.forecast_date = actual.weather_date
 
 )
 

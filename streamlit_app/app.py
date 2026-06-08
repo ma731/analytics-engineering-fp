@@ -17,6 +17,8 @@ Run from the project root:
 from __future__ import annotations
 
 import base64
+import re
+import unicodedata
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -46,15 +48,18 @@ MUTED = "#6B7280"
 
 CITY_COLORS = [TERRACOTTA, COBALT, OCHRE, GREEN, VIOLET]
 
-# City spotlight photos (committed under streamlit_app/assets/cities)
+# City spotlight photos (committed under streamlit_app/assets/cities, one per city)
 ASSETS = Path(__file__).resolve().parent / "assets" / "cities"
-CITY_PHOTOS = {
-    "Madrid": ASSETS / "madrid.jpg",
-    "Barcelona": ASSETS / "barcelona.jpg",
-    "Valencia": ASSETS / "valencia.jpg",
-    "Sevilla": ASSETS / "sevilla.jpg",
-    "Bilbao": ASSETS / "bilbao.jpg",
-}
+
+
+def city_slug(name: str) -> str:
+    """Accent-stripped lowercase alphanumeric slug, matching the photo filenames."""
+    n = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode()
+    return re.sub(r"[^a-z0-9]", "", n.lower())
+
+
+def city_photo(name: str) -> Path:
+    return ASSETS / f"{city_slug(name)}.jpg"
 CITY_BLURBS = {
     "Madrid": "Gran Vía at golden hour — the capital's restless heart.",
     "Barcelona": "Gaudí's Sagrada Família against the Mediterranean sky.",
@@ -489,7 +494,7 @@ def city_spotlight() -> None:
     idx = st.session_state.get("spot_idx", 0) % n
     st.session_state["spot_idx"] = idx + 1
     city = spotlight_cities[idx]
-    b64 = img_b64(CITY_PHOTOS[city]) if city in CITY_PHOTOS else ""
+    b64 = img_b64(city_photo(city))
     bg = f"url(data:image/jpeg;base64,{b64})" if b64 else "linear-gradient(125deg,#DD614C,#7C2D12)"
     row = summary[summary["city_name"] == city]
     temp = f"{row['avg_temperature_c'].iloc[0]:.1f} °C" if not row.empty else "—"
@@ -525,12 +530,12 @@ def city_spotlight() -> None:
 
 city_spotlight()
 
-# Thumbnail strip — photo cities within the current selection
-thumb_cities = [c for c in CITY_PHOTOS if c in selected_cities]
+# Thumbnail strip — photo cities within the current selection (cap to keep it tidy)
+thumb_cities = [c for c in selected_cities if city_photo(c).exists()][:8]
 if thumb_cities:
     tcols = st.columns(len(thumb_cities))
     for col, c in zip(tcols, thumb_cities):
-        b = img_b64(CITY_PHOTOS[c])
+        b = img_b64(city_photo(c))
         with col:
             st.markdown(
                 f'<img class="thumb" src="data:image/jpeg;base64,{b}" alt="{c}" />',

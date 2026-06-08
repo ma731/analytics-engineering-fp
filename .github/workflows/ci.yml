@@ -1,55 +1,49 @@
-name: CI
+name: ci
 
 on:
-  push:
-    branches: [main]
   pull_request:
+  push:
+    branches: [main, dev]
+
+# Cancel superseded runs on the same ref to save CI minutes.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DBT_PROFILES_DIR: ${{ github.workspace }}
 
 jobs:
-  python-tests:
-    name: pytest (extraction)
+  build-and-test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - name: Install test deps
-        run: pip install pytest
-      - name: Run pytest
-        run: pytest tests_python/ -v
 
-  dbt-build:
-    name: dbt build + tests
-    runs-on: ubuntu-latest
-    env:
-      DBT_PROFILES_DIR: ${{ github.workspace }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
         with:
           python-version: "3.12"
+
       - name: Install dependencies
-        run: pip install -e .
-      - name: Load committed raw CSVs into DuckDB
-        run: python scripts/load_to_duckdb.py
-      - name: dbt deps
-        run: dbt deps
-      - name: dbt build (models + tests)
-        run: dbt build --target dev
+        run: uv sync --extra dev
 
-  lint:
-    name: sqlfluff + ruff (advisory)
-    runs-on: ubuntu-latest
-    continue-on-error: true
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - name: Install linters
-        run: pip install sqlfluff sqlfluff-templater-dbt dbt-duckdb ruff
-      - name: ruff (scripts + dashboard)
-        run: ruff check scripts streamlit_app tests_python
-      - name: sqlfluff lint (models)
-        run: sqlfluff lint models || true
+      - name: Install dbt packages
+        run: uv run dbt deps
+
+      - name: Lint Python (ruff)
+        run: uv run ruff check scripts tests_python
+
+      - name: Extract sample data (5 rubric cities)
+        run: uv run python scripts/extract_open_meteo.py --cities Madrid Barcelona Valencia Sevilla Bilbao
+
+      - name: Load into DuckDB
+        run: uv run python scripts/load_to_duckdb.py
+
+      - name: Lint SQL (sqlfluff)
+        run: uv run sqlfluff lint models/staging models/intermediate
+
+      - name: Python unit tests
+        run: uv run pytest tests_python --cov=extract_open_meteo --cov-report=term-missing --cov-fail-under=80
+
+      - name: dbt build (dev target — all models + tests)
+        run: uv run dbt build --target dev

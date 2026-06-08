@@ -1,21 +1,24 @@
+# Pre-commit hooks enforce style before a commit lands.
+# Install once per clone:  uv run pre-commit install
+# Run on all files:        uv run pre-commit run --all-files
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.6.0
+    rev: v5.0.0
     hooks:
       - id: end-of-file-fixer
       - id: trailing-whitespace
       - id: check-yaml
       - id: check-added-large-files
-        args: ["--maxkb=2000"]
+        args: ["--maxkb=2048"]
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.6.9
+    rev: v0.8.4
     hooks:
       - id: ruff
         args: ["--fix"]
 
   - repo: https://github.com/sqlfluff/sqlfluff
-    rev: 3.2.5
+    rev: 3.3.0
     hooks:
       - id: sqlfluff-lint
         additional_dependencies:

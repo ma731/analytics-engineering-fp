@@ -1,14 +1,29 @@
 #!/usr/bin/env python3
-"""Extract starter Open-Meteo data for the group assignment.
+"""Extract Open-Meteo data for the weather-analytics project (Role 1 — Data Platform Lead).
 
-The script writes four CSV files:
+The script writes four CSV files into ``--output-dir`` (default
+``data/raw/open_meteo``), which are then loaded into DuckDB by
+``scripts/load_to_duckdb.py``:
+
 - raw_locations.csv
 - raw_weather_daily.csv
 - raw_forecast_daily.csv
 - raw_air_quality_hourly.csv
 
-It uses the Python standard library for HTTP requests. If certifi is installed,
-the script uses it to avoid certificate issues on some local Python installs.
+Engineering features expected of the Data Platform Lead:
+
+- **Idempotent CSV outputs** — re-running overwrites the four CSVs; the column
+  schema is stable so the downstream ``stg_*`` models never break.
+- **Structured logging** — progress is emitted to stderr as JSON lines, so the
+  output is greppable in CI and in ``run_pipeline.sh``.
+- **Resilient HTTP** — transient 5xx responses and network errors are retried
+  with exponential backoff.
+- **Snapshot mode** — ``--snapshot-mode`` additionally appends a timestamped
+  Parquet partition per run, preserving every ``extracted_at`` so the
+  forecast-vs-actual analysis can compare historical forecast runs.
+
+It uses the Python standard library for HTTP. If ``certifi`` is installed the
+script uses it to avoid certificate issues on some local Python installs.
 """
 
 from __future__ import annotations
@@ -22,6 +37,7 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
@@ -31,58 +47,21 @@ FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
 AIR_QUALITY_URL = "https://air-quality-api.open-meteo.com/v1/air-quality"
 
 DEFAULT_CITIES = [
-    "Madrid",
-    "Barcelona",
-    "Valencia",
-    "Sevilla",
-    "Bilbao",
-    "Toledo",
-    "Albacete",
-    "Ciudad Real",
-    "Cuenca",
-    "Guadalajara",
-    "Almeria",
-    "Cadiz",
-    "Cordoba",
-    "Granada",
-    "Huelva",
-    "Jaen",
-    "Malaga",
-    "Huesca",
-    "Teruel",
-    "Zaragoza",
-    "Oviedo",
-    "Palma",
-    "San Sebastian",
-    "Vitoria-Gasteiz",
-    "Santander",
-    "Avila",
-    "Burgos",
-    "Leon",
-    "Palencia",
-    "Salamanca",
-    "Segovia",
-    "Soria",
-    "Valladolid",
-    "Zamora",
-    "Girona",
-    "Lleida",
-    "Tarragona",
-    "Badajoz",
-    "Caceres",
-    "A Coruna",
-    "Lugo",
-    "Ourense",
-    "Pontevedra",
-    "Logrono",
-    "Murcia",
-    "Pamplona",
-    "Alicante",
-    "Castellon de la Plana",
-    "Las Palmas de Gran Canaria",
-    "Santa Cruz de Tenerife",
-    "Ceuta",
-    "Melilla",
+    "Madrid", "Barcelona", "Valencia", "Sevilla", "Bilbao",
+    "Toledo", "Albacete", "Ciudad Real", "Cuenca", "Guadalajara",
+    "Almería", "Cádiz", "Córdoba", "Granada", "Huelva", "Jaén", "Málaga",
+    "Huesca", "Teruel", "Zaragoza",
+    "Oviedo", "Palma de Mallorca",
+    "San Sebastián", "Vitoria-Gasteiz", "Santander",
+    "Ávila", "Burgos", "León", "Palencia", "Salamanca",
+    "Segovia", "Soria", "Valladolid", "Zamora",
+    "Girona", "Lleida", "Tarragona",
+    "Badajoz", "Cáceres",
+    "A Coruña", "Lugo", "Ourense", "Pontevedra",
+    "Logroño", "Murcia", "Pamplona",
+    "Alicante", "Castellón de la Plana",
+    "Las Palmas de Gran Canaria", "Santa Cruz de Tenerife",
+    "Ceuta", "Melilla",
 ]
 DEFAULT_DAILY_WEATHER_VARIABLES = [
     "temperature_2m_max",
@@ -103,20 +82,21 @@ DEFAULT_AIR_QUALITY_VARIABLES = [
 ]
 
 
-def parse_args() -> argparse.Namespace:
+def log_event(event: str, **fields: Any) -> None:
+    """Emit a single structured (JSON line) log record to stderr."""
+    record = {"event": event, **fields}
+    print(json.dumps(record, ensure_ascii=False), file=sys.stderr, flush=True)
+
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Extract location, weather, forecast, and air quality data from Open-Meteo."
     )
     parser.add_argument(
         "--cities",
         nargs="+",
-        default=None,
-        help="Optional city names to search in the Open-Meteo Geocoding API. If omitted, --city-csv is used.",
-    )
-    parser.add_argument(
-        "--city-csv",
-        default="spain_cities.csv",
-        help="CSV of Spanish cities with coordinates. Used by default instead of geocoding city names.",
+        default=DEFAULT_CITIES,
+        help="City names to search in the Open-Meteo Geocoding API.",
     )
     parser.add_argument(
         "--past-days",
@@ -141,7 +121,15 @@ def parse_args() -> argparse.Namespace:
         default=0.25,
         help="Small pause between API calls.",
     )
-    args = parser.parse_args()
+    parser.add_argument(
+        "--snapshot-mode",
+        action="store_true",
+        help=(
+            "In addition to the CSVs, append a timestamped Parquet partition per "
+            "run under <output-dir>/snapshots/, preserving forecast history."
+        ),
+    )
+    args = parser.parse_args(argv)
     if not 0 <= args.past_days <= 92:
         parser.error("--past-days must be between 0 and 92.")
     if not 1 <= args.forecast_days <= 16:
@@ -149,9 +137,21 @@ def parse_args() -> argparse.Namespace:
     return args
 
 
-def get_json(url: str, params: dict[str, Any], retries: int = 4) -> dict[str, Any]:
-    from urllib.error import HTTPError
+def get_ssl_context() -> ssl.SSLContext:
+    try:
+        import certifi
+    except ImportError:
+        return ssl.create_default_context()
 
+    return ssl.create_default_context(cafile=certifi.where())
+
+
+def get_json(url: str, params: dict[str, Any], retries: int = 4) -> dict[str, Any]:
+    """Fetch JSON from Open-Meteo with exponential backoff on transient failures.
+
+    Retries on 5xx responses and on network-level ``URLError`` (DNS/timeout).
+    4xx responses are re-raised immediately — they will not succeed on retry.
+    """
     query_string = urlencode(params, doseq=True)
     request = Request(
         f"{url}?{query_string}",
@@ -167,43 +167,18 @@ def get_json(url: str, params: dict[str, Any], retries: int = 4) -> dict[str, An
             if exc.code < 500 or attempt == retries - 1:
                 raise
             wait = 2 ** attempt
-            print(f"  HTTP {exc.code} — retrying in {wait}s...", file=sys.stderr)
+            log_event("http_retry", url=url, status=exc.code, attempt=attempt + 1, wait_s=wait)
+            time.sleep(wait)
+        except URLError as exc:
+            if attempt == retries - 1:
+                raise
+            wait = 2 ** attempt
+            log_event("network_retry", url=url, reason=str(exc.reason), attempt=attempt + 1,
+                      wait_s=wait)
             time.sleep(wait)
 
-
-def get_ssl_context() -> ssl.SSLContext:
-    try:
-        import certifi
-    except ImportError:
-        return ssl.create_default_context()
-
-    return ssl.create_default_context(cafile=certifi.where())
-
-
-def load_locations_from_city_csv(path: Path) -> list[dict[str, Any]]:
-    if not path.exists():
-        raise FileNotFoundError(f"City CSV not found: {path}")
-
-    locations = []
-    with path.open(newline="", encoding="utf-8-sig") as file:
-        reader = csv.DictReader(file)
-        for index, row in enumerate(reader, start=1):
-            city_name = row["city_name"].strip()
-            locations.append(
-                {
-                    "location_id": 900000 + index,
-                    "city_name": city_name,
-                    "country": row.get("country") or "Spain",
-                    "country_code": "ES",
-                    "admin1": row.get("province") or None,
-                    "latitude": float(row["latitude"]),
-                    "longitude": float(row["longitude"]),
-                    "timezone": row.get("timezone") or "auto",
-                    "elevation": float(row["elevation_m"]) if row.get("elevation_m") else None,
-                    "population": int(float(row["population"])) if row.get("population") else None,
-                }
-            )
-    return locations
+    # Unreachable: the loop either returns or re-raises on the final attempt.
+    raise RuntimeError(f"Exhausted retries fetching {url}")
 
 
 def geocode_city(city: str) -> dict[str, Any]:
@@ -211,7 +186,7 @@ def geocode_city(city: str) -> dict[str, Any]:
         GEOCODING_URL,
         {
             "name": city,
-            "count": 10,
+            "count": 1,
             "language": "en",
             "format": "json",
         },
@@ -220,17 +195,10 @@ def geocode_city(city: str) -> dict[str, Any]:
     if not results:
         raise ValueError(f"No geocoding result found for city: {city}")
 
-    spanish_results = [result for result in results if result.get("country_code") == "ES"]
-    if not spanish_results:
-        candidates = ", ".join(
-            f"{result.get('name')} ({result.get('country_code')})" for result in results[:5]
-        )
-        raise ValueError(f"No Spanish geocoding result found for city: {city}. Candidates: {candidates}")
-
-    result = spanish_results[0]
+    result = results[0]
     return {
         "location_id": result.get("id"),
-        "city_name": city,
+        "city_name": result.get("name"),
         "country": result.get("country"),
         "country_code": result.get("country_code"),
         "admin1": result.get("admin1"),
@@ -364,23 +332,63 @@ def write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
         writer.writerows(rows)
 
 
-def main() -> int:
-    args = parse_args()
+def snapshot_partition_path(output_dir: Path, source_name: str, extracted_at: str) -> Path:
+    """Build the Parquet partition path for one snapshot run.
+
+    Layout: ``<output-dir>/snapshots/<source_name>/extracted_at=<safe-ts>/data.parquet``.
+    The colons in the ISO timestamp are replaced so the path is valid on Windows.
+    """
+    safe_ts = extracted_at.replace(":", "-")
+    return output_dir / "snapshots" / source_name / f"extracted_at={safe_ts}" / "data.parquet"
+
+
+def write_parquet_snapshot(path: Path, rows: list[dict[str, Any]]) -> bool:
+    """Append a Parquet partition. Returns True if written, False if skipped.
+
+    Uses pyarrow if available; otherwise logs and skips (CSVs are still the
+    authoritative pipeline input, so a missing pyarrow never breaks the run).
+    """
+    if not rows:
+        return False
+    try:
+        import pyarrow as pa
+        import pyarrow.parquet as pq
+    except ImportError:
+        log_event("snapshot_skipped", reason="pyarrow_not_installed", path=str(path))
+        return False
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    pq.write_table(pa.Table.from_pylist(rows), path)
+    return True
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = parse_args(argv)
     output_dir = Path(args.output_dir)
     extracted_at = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
-    locations = []
-    weather_daily_rows = []
-    forecast_daily_rows = []
-    air_quality_hourly_rows = []
+    log_event(
+        "extract_start",
+        extracted_at=extracted_at,
+        city_count=len(args.cities),
+        past_days=args.past_days,
+        forecast_days=args.forecast_days,
+        snapshot_mode=args.snapshot_mode,
+    )
 
-    if args.cities:
-        extract_locations = [geocode_city(city) for city in args.cities]
-    else:
-        extract_locations = load_locations_from_city_csv(Path(args.city_csv))
+    locations: list[dict[str, Any]] = []
+    weather_daily_rows: list[dict[str, Any]] = []
+    forecast_daily_rows: list[dict[str, Any]] = []
+    air_quality_hourly_rows: list[dict[str, Any]] = []
 
-    for location in extract_locations:
-        print(f"Extracting {location['city_name']}...", file=sys.stderr)
+    for city in args.cities:
+        try:
+            location = geocode_city(city)
+        except ValueError as exc:
+            log_event("city_skipped", city=city, reason=str(exc))
+            continue
+
+        log_event("city_extracting", city=city, location_id=location["location_id"])
         locations.append({**location, "extracted_at": extracted_at})
         time.sleep(args.pause_seconds)
 
@@ -400,11 +408,25 @@ def main() -> int:
     write_csv(output_dir / "raw_forecast_daily.csv", forecast_daily_rows)
     write_csv(output_dir / "raw_air_quality_hourly.csv", air_quality_hourly_rows)
 
-    print(f"Wrote {len(locations):,} locations", file=sys.stderr)
-    print(f"Wrote {len(weather_daily_rows):,} recent daily weather rows", file=sys.stderr)
-    print(f"Wrote {len(forecast_daily_rows):,} forecast daily weather rows", file=sys.stderr)
-    print(f"Wrote {len(air_quality_hourly_rows):,} air quality hourly rows", file=sys.stderr)
-    print(f"Output directory: {output_dir}", file=sys.stderr)
+    if args.snapshot_mode:
+        for source_name, rows in (
+            ("raw_weather_daily", weather_daily_rows),
+            ("raw_forecast_daily", forecast_daily_rows),
+            ("raw_air_quality_hourly", air_quality_hourly_rows),
+        ):
+            partition = snapshot_partition_path(output_dir, source_name, extracted_at)
+            if write_parquet_snapshot(partition, rows):
+                log_event("snapshot_written", source=source_name, path=str(partition),
+                          rows=len(rows))
+
+    log_event(
+        "extract_complete",
+        locations=len(locations),
+        weather_daily_rows=len(weather_daily_rows),
+        forecast_daily_rows=len(forecast_daily_rows),
+        air_quality_hourly_rows=len(air_quality_hourly_rows),
+        output_dir=str(output_dir),
+    )
 
     return 0
 

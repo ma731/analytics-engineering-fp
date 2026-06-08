@@ -35,7 +35,9 @@ aligned as (
         forecast.wind_speed_10m_max - actual.wind_speed_10m_max as wind_speed_error,
         abs(forecast.temperature_2m_mean - actual.temperature_2m_mean) as abs_temperature_error,
         abs(forecast.precipitation_sum - actual.precipitation_sum) as abs_precipitation_error,
-        {{ dbt_utils.generate_surrogate_key(['forecast.location_id', 'forecast.forecast_date', 'forecast.extracted_at']) }} as forecast_vs_actual_sk
+        {{ dbt_utils.generate_surrogate_key(
+            ['forecast.location_id', 'forecast.forecast_date', 'forecast.extracted_at']
+        ) }} as forecast_vs_actual_sk
 
     from forecast
     inner join actual

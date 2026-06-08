@@ -915,12 +915,19 @@ if not anim.empty:
     anim["day"] = anim["weather_date"].dt.strftime("%d %b")
     anim["precip_size"] = anim["precipitation_sum"].clip(lower=0) + 2
     show_labels = len(selected_cities) <= 8
+    # Temperature axis: span the animated data (all frames, not per-day) but
+    # enforce a minimum readable width so it never collapses to a cramped range.
+    _sel_t = anim["temperature_2m_mean"]
+    _x_lo, _x_hi = float(_sel_t.min()) - 2, float(_sel_t.max()) + 2
+    if _x_hi - _x_lo < 26:
+        _mid = (_x_hi + _x_lo) / 2
+        _x_lo, _x_hi = _mid - 13, _mid + 13
     fig_anim = px.scatter(
         anim, x="temperature_2m_mean", y="avg_european_aqi",
         animation_frame="day", animation_group="city_name",
         color="city_name", size="precip_size", size_max=34,
         color_discrete_sequence=CITY_COLORS, text="city_name" if show_labels else None,
-        range_x=[anim["temperature_2m_mean"].min() - 2, anim["temperature_2m_mean"].max() + 2],
+        range_x=[_x_lo, _x_hi],
         range_y=[max(0, anim["avg_european_aqi"].min() - 8), anim["avg_european_aqi"].max() + 8],
         labels={"temperature_2m_mean": "Mean temp (°C)", "avg_european_aqi": "European AQI",
                 "city_name": "City"},

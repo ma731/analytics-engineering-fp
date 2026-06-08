@@ -46,4 +46,8 @@ jobs:
         run: uv run pytest tests_python --cov=extract_open_meteo --cov-report=term-missing --cov-fail-under=80
 
       - name: dbt build (dev target)
-        run: uv run dbt build --target dev
+        # The marts layer (models/marts/*.sql) is still empty placeholders owned
+        # by Role 3; building an empty model errors. Scope to the layers that are
+        # implemented and integrate with the raw data this pipeline produces.
+        # Drop the selector once the marts are filled in.
+        run: uv run dbt build --target dev -s staging intermediate

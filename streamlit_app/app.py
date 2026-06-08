@@ -131,6 +131,16 @@ CITY_GOV = {
     "Melilla": "https://www.melilla.es",
     "Ibiza": "https://www.eivissa.es",
 }
+# Verified official tourism-board promo videos (5 majors; embedded inline).
+# Channels confirmed via YouTube oEmbed: Turisme de Barcelona, Visit València,
+# official "Ven a Sevilla", Bilbao Udala (Ayuntamiento), IFEMA Madrid tourism.
+CITY_VIDEO = {
+    "Madrid": "https://www.youtube.com/watch?v=oEbVbKufTII",
+    "Barcelona": "https://www.youtube.com/watch?v=knXxurBWKvQ",
+    "Valencia": "https://www.youtube.com/watch?v=AKl7EOR8k-8",
+    "Sevilla": "https://www.youtube.com/watch?v=LnV7IkZU-OY",
+    "Bilbao": "https://www.youtube.com/watch?v=rHbmRaaHdU4",
+}
 COMFORT_SCALE = [DANGER, TERRACOTTA, OCHRE, GREEN]   # low -> high (good)
 AQI_SCALE = [GREEN, OCHRE, TERRACOTTA, DANGER]       # low (good) -> high (bad)
 HEAT_SCALE = ["#1E3A8A", COBALT, GREEN, OCHRE, TERRACOTTA]  # cold -> hot
@@ -527,8 +537,9 @@ def city_spotlight() -> None:
         f'<a class="spot-stat" style="text-decoration:none" href="{gov}" '
         f'target="_blank" rel="noopener">CITY HALL &#8599;</a>'
     ) if gov else ""
-    video_url = ("https://www.youtube.com/results?search_query="
-                 + urllib.parse.quote_plus(f"{city} turismo oficial vídeo"))
+    video_url = CITY_VIDEO.get(city) or (
+        "https://www.youtube.com/results?search_query="
+        + urllib.parse.quote_plus(f"{city} turismo oficial vídeo"))
     st.markdown(
         f"""
         <div class="spotlight" style="background-image:{bg};">
@@ -567,6 +578,14 @@ if thumb_cities:
                 unsafe_allow_html=True,
             )
             st.caption(c)
+
+# Inline official tourism video player (for the major cities that have a verified one)
+video_cities = [c for c in selected_cities if c in CITY_VIDEO]
+if video_cities:
+    with st.expander("▶  Watch an official city tourism video"):
+        vpick = st.selectbox("City", video_cities, key="tourism_video_pick")
+        st.video(CITY_VIDEO[vpick])
+        st.caption("Official tourism-board video. Other cities link out to YouTube via the ▶ on the card.")
 
 st.markdown("")
 

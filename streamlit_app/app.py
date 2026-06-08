@@ -192,7 +192,7 @@ st.markdown(
       .chips {{ display: flex; gap: .5rem; flex-wrap: wrap; }}
       .chip {{ display:inline-flex; align-items:center; gap:.45rem; white-space:nowrap;
         background:{PAPER}; border:2px solid {INK}; padding:.3rem .6rem;
-        font-size:.7rem; font-weight:700; letter-spacing:.05em; }}
+        font-size:.75rem; font-weight:700; letter-spacing:.05em; }}
       .chip.muted {{ color:{MUTED}; }}
       .dot {{ width:9px; height:9px; border-radius:50%; background:{TERRACOTTA};
         box-shadow:0 0 0 0 rgba(221,97,76,.7); animation:pulse 1.6s infinite; }}
@@ -203,7 +203,7 @@ st.markdown(
       }}
 
       /* Section eyebrow + header */
-      .eyebrow {{ font-family:'JetBrains Mono',monospace; font-size:.7rem; font-weight:700;
+      .eyebrow {{ font-family:'JetBrains Mono',monospace; font-size:.75rem; font-weight:700;
         letter-spacing:.18em; color:{TERRACOTTA}; text-transform:uppercase; margin-top:.6rem; }}
       h2, h3 {{ border-bottom: 3px solid {INK}; padding-bottom: .15rem; }}
 
@@ -215,7 +215,7 @@ st.markdown(
       div[data-testid="stMetricLabel"] {{ overflow: visible !important; max-width: 100% !important; }}
       div[data-testid="stMetricLabel"] * {{ overflow: visible !important; text-overflow: clip !important; }}
       div[data-testid="stMetricLabel"] p {{ font-weight:700; text-transform:uppercase;
-        font-size:.7rem; letter-spacing:.03em; color:{INK}; white-space:normal; line-height:1.2; }}
+        font-size:.75rem; letter-spacing:.03em; color:{INK}; white-space:normal; line-height:1.2; }}
       div[data-testid="stMetricValue"] {{ font-family:'Darker Grotesque',sans-serif; font-weight:900; }}
 
       /* Framed charts + table */
@@ -234,7 +234,7 @@ st.markdown(
         display:flex; align-items:flex-end; overflow:hidden; margin-bottom:.9rem; }}
       .spot-inner {{ width:100%; padding:1.4rem 1.7rem;
         background:linear-gradient(to top, rgba(0,0,0,.80), rgba(0,0,0,.20) 55%, transparent); }}
-      .spot-kicker {{ color:#fff; font-family:'JetBrains Mono',monospace; font-size:.72rem;
+      .spot-kicker {{ color:#fff; font-family:'JetBrains Mono',monospace; font-size:.75rem;
         font-weight:700; letter-spacing:.16em; text-transform:uppercase; opacity:.92; }}
       .spot-city {{ color:#fff !important; font-family:'Darker Grotesque',sans-serif; font-weight:900;
         font-size:clamp(2.4rem,5vw,3.6rem); line-height:.9; margin:.1rem 0 .25rem; text-transform:uppercase; }}
@@ -245,7 +245,7 @@ st.markdown(
         font-size:1.05rem; background:rgba(0,0,0,.28); }}
       .spot-stats {{ display:flex; gap:.5rem; flex-wrap:wrap; }}
       .spot-stat {{ background:rgba(255,255,255,.14); border:2px solid rgba(255,255,255,.6);
-        color:#fff; padding:.3rem .6rem; font-size:.74rem; font-weight:700; }}
+        color:#fff; padding:.3rem .6rem; font-size:.75rem; font-weight:700; }}
       .thumb {{ width:100%; height:78px; object-fit:cover; border:2px solid {INK}; display:block; }}
       * {{ border-radius:0 !important; }}
     </style>

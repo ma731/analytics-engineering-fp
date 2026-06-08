@@ -65,7 +65,14 @@ st.markdown(
       @import url('https://fonts.googleapis.com/css2?family=Darker+Grotesque:wght@600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
 
       html, body, [class*="css"] {{ font-family: 'JetBrains Mono', monospace; color: {INK}; }}
-      .stApp {{ background: {PAPER}; }}
+      .stApp {{ background:
+          radial-gradient(1100px 420px at 86% -8%, rgba(221,97,76,.10), transparent 60%),
+          radial-gradient(900px 420px at 0% 0%, rgba(218,161,68,.10), transparent 55%),
+          {CREAM}; }}
+      /* Website feel: hide Streamlit chrome */
+      #MainMenu, footer {{ visibility: hidden; }}
+      [data-testid="stToolbar"] {{ display: none; }}
+      header[data-testid="stHeader"] {{ background: transparent; }}
       h1, h2, h3, h4 {{
         font-family: 'Darker Grotesque', sans-serif !important;
         font-weight: 900 !important; letter-spacing: -0.01em;
@@ -73,11 +80,12 @@ st.markdown(
       }}
       .block-container {{ padding-top: 1.4rem; padding-bottom: 3rem; max-width: 1340px; }}
 
-      /* Top bar (site header) */
+      /* Top bar (sticky site nav) */
       .topbar {{
+        position: sticky; top: 0; z-index: 50; background: {CREAM};
         display: flex; align-items: center; justify-content: space-between;
         gap: 1rem; flex-wrap: wrap; border-bottom: 3px solid {INK};
-        padding-bottom: .6rem; margin-bottom: 1.1rem;
+        padding: .5rem 0 .55rem; margin-bottom: 1.1rem;
       }}
       .wordmark {{ font-family: 'Darker Grotesque', sans-serif; font-weight: 900;
         font-size: 1.35rem; text-transform: uppercase; letter-spacing: -.01em; }}
@@ -86,12 +94,13 @@ st.markdown(
 
       /* Hero */
       .hero {{
-        background: {TERRACOTTA}; color: #fff; padding: 1.5rem 1.9rem;
-        border: 4px solid {INK}; box-shadow: 10px 10px 0 {INK}; margin-bottom: 1.8rem;
+        background: linear-gradient(120deg, {TERRACOTTA} 0%, #C2410C 100%);
+        color: #fff; padding: 1.35rem 1.7rem;
+        border: 4px solid {INK}; box-shadow: 10px 10px 0 {INK}; margin-bottom: 1.7rem;
       }}
-      .hero h1 {{ margin: 0; font-size: 3rem; line-height: .9; color: #fff !important; }}
+      .hero h1 {{ margin: 0; font-size: clamp(2rem, 4.4vw, 2.9rem); line-height: .92; color: #fff !important; }}
       .hero p {{ margin: .5rem 0 0; font-family: 'JetBrains Mono', monospace;
-        font-size: .82rem; font-weight: 600; max-width: 720px; }}
+        font-size: clamp(.72rem, 1vw, .82rem); font-weight: 600; max-width: 720px; }}
 
       /* Live chips */
       .chips {{ display: flex; gap: .5rem; flex-wrap: wrap; }}
@@ -117,8 +126,10 @@ st.markdown(
         background:{PAPER}; border:3px solid {INK}; padding:.85rem 1rem;
         box-shadow:6px 6px 0 {INK};
       }}
+      div[data-testid="stMetricLabel"] {{ overflow: visible !important; max-width: 100% !important; }}
+      div[data-testid="stMetricLabel"] * {{ overflow: visible !important; text-overflow: clip !important; }}
       div[data-testid="stMetricLabel"] p {{ font-weight:700; text-transform:uppercase;
-        font-size:.72rem; letter-spacing:.04em; color:{INK}; }}
+        font-size:.7rem; letter-spacing:.03em; color:{INK}; white-space:normal; line-height:1.2; }}
       div[data-testid="stMetricValue"] {{ font-family:'Darker Grotesque',sans-serif; font-weight:900; }}
 
       /* Framed charts + table */
@@ -221,8 +232,16 @@ st.sidebar.header("Filters")
 all_cities = sorted(summary["city_name"].tolist())
 MAJOR_CITIES = ["Madrid", "Barcelona", "Valencia", "Sevilla", "Bilbao"]
 default_cities = [c for c in MAJOR_CITIES if c in all_cities] or all_cities
-selected_cities = st.sidebar.multiselect("Cities", options=all_cities, default=default_cities)
-st.sidebar.caption(f"{len(all_cities)} cities available · {len(default_cities)} shown by default")
+
+show_all = st.sidebar.checkbox(f"Show all {len(all_cities)} cities", value=False)
+if show_all:
+    selected_cities = all_cities
+else:
+    selected_cities = st.sidebar.multiselect(
+        "Cities", options=all_cities, default=default_cities,
+        help=f"Type to add any of the {len(all_cities)} Spanish cities.",
+    )
+st.sidebar.caption(f"{len(all_cities)} available · {len(selected_cities)} selected")
 if not selected_cities:
     st.warning("Select at least one city to see the dashboard.")
     st.stop()
@@ -335,8 +354,8 @@ live_status()
 k1, k2, k3, k4 = st.columns(4)
 k1.metric("Cities in view", len(selected_cities))
 k2.metric("Avg temperature", f"{w['temperature_2m_mean'].mean():.1f} °C")
-k3.metric("Comfortable days", int(ranking["comfortable_days"].sum()),
-          help="Mean temp 18–26 °C and not rainy, windy, hot or freezing.")
+k3.metric("Comfy days", int(ranking["comfortable_days"].sum()),
+          help="Comfortable days: mean temp 18–26 °C and not rainy, windy, hot or freezing.")
 k4.metric("Most comfortable", best_city["city_name"],
           f"index {best_city['overall_comfort_index']:.1f}")
 

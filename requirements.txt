@@ -1,0 +1,7 @@
+# Runtime dependencies for the Streamlit Community Cloud deployment.
+# The app reads the committed, prebuilt data/weather_analytics.duckdb, so it
+# does not need dbt at runtime — only the dashboard libraries.
+streamlit>=1.30
+duckdb>=0.10
+pandas>=2.0
+plotly>=5.18

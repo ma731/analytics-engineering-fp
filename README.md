@@ -9,6 +9,8 @@ An end-to-end analytics pipeline over [Open-Meteo](https://open-meteo.com/) data
 
 ![City Comfort Index dashboard](docs/dashboard.png)
 
+**Live dashboard:** https://city-comfort-index.streamlit.app
+
 ---
 
 ## TL;DR 鈥?run it in four commands
@@ -86,8 +88,10 @@ python -m streamlit run streamlit_app/app.py
 # then open http://localhost:8501
 ```
 
-The dashboard (the **Spain Climate Observatory**) has a cinematic city-photo design, a city filter, a date
-filter, and seven visualizations. It reads **only from the mart models**, never the raw files.
+The dashboard (the **City Comfort Index**) has a light "brutalist website" design with a sticky nav,
+a terracotta hero, gauge instruments, an animated play-button scatter, a gradient trend, a radar,
+a heatmap and a map. It has a city filter (with a "show all 58 cities" toggle), a date filter, and
+reads **only from the mart models**, never the raw files.
 
 ## 5. What final models power the dashboard?
 
@@ -168,7 +172,12 @@ fixers locally 鈥?install with `pre-commit install` after `pip install -e ".[de
    `data/weather_analytics.duckdb` for the demo. Simplest path: add a top-of-app guard
    (already present) that errors clearly if the DB is missing, and build it in the deploy
    command: `python scripts/load_to_duckdb.py && dbt deps && dbt build`.
-4. Paste the public URL here once live: **`<add-streamlit-cloud-url>`**
+4. Set the **custom subdomain** to `city-comfort-index` so the public URL is
+   **https://city-comfort-index.streamlit.app** (already linked at the top of this README).
+
+The repo is deploy-ready: `requirements.txt` lists the runtime deps and a prebuilt
+`data/weather_analytics.duckdb` is committed, so the app runs on Cloud with no build step.
+Every push to the deployed branch auto-redeploys.
 
 ## Known limitation 鈥?forecast vs actual
 

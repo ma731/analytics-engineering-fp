@@ -145,12 +145,10 @@ st.markdown(
       @import url('https://fonts.googleapis.com/css2?family=Darker+Grotesque:wght@600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
 
       html, body, [class*="css"] {{ font-family: 'JetBrains Mono', monospace; color: {INK}; }}
-      /* Split two-tone background: warm cream (left) meets cool blue (right) */
+      /* Single cohesive cream canvas with one faint warm accent */
       .stApp {{ background:
-          linear-gradient(118deg,
-            #FCEFE7 0%, #FBE8DC 47%,
-            #E4ECF7 47%, #DCE7F5 100%);
-          background-attachment: fixed; }}
+          radial-gradient(1000px 400px at 90% -8%, rgba(221,97,76,.07), transparent 60%),
+          {CREAM}; }}
       /* Website feel: hide Streamlit chrome */
       #MainMenu, footer {{ visibility: hidden; }}
       [data-testid="stToolbar"] {{ display: none; }}
@@ -247,6 +245,21 @@ st.markdown(
       .spot-stat {{ background:rgba(255,255,255,.14); border:2px solid rgba(255,255,255,.6);
         color:#fff; padding:.3rem .6rem; font-size:.75rem; font-weight:700; }}
       .thumb {{ width:100%; height:78px; object-fit:cover; border:2px solid {INK}; display:block; }}
+      /* Spotlight chips + the City Hall link share one colour (white), never browser-blue */
+      .spot-stat, a.spot-stat, a.spot-stat:link, a.spot-stat:visited, a.spot-stat:hover {{
+        color:#fff !important; text-decoration:none !important; }}
+
+      /* "At a glance" meter cards (replace the gauges) */
+      .meter-card {{ background:{PAPER}; border:3px solid {INK}; box-shadow:6px 6px 0 {INK};
+        padding:1rem 1.1rem 1.05rem; }}
+      .meter-label {{ font-family:'JetBrains Mono',monospace; font-weight:700; text-transform:uppercase;
+        font-size:.75rem; letter-spacing:.04em; color:{INK}; }}
+      .meter-value {{ font-family:'Darker Grotesque',sans-serif; font-weight:900; font-size:2.7rem;
+        line-height:1; margin:.15rem 0 .6rem; color:{INK}; }}
+      .meter-track {{ height:14px; background:#EDEBE3; border:2px solid {INK}; }}
+      .meter-fill {{ height:100%; }}
+      .meter-scale {{ display:flex; justify-content:space-between; font-family:'JetBrains Mono',monospace;
+        font-size:.75rem; color:{MUTED}; margin-top:.35rem; }}
       * {{ border-radius:0 !important; }}
     </style>
     """,
@@ -426,15 +439,14 @@ best_city = ranking.iloc[0]
 # Top bar + hero
 # --------------------------------------------------------------------------- #
 st.markdown(
-    '<div class="topbar"><div class="wordmark"><span class="sq"></span>'
-    '<span class="wm-dk">CITY COMFORT</span> <span class="wm-ac">INDEX</span></div>'
+    '<div class="topbar"><div class="wordmark"><span class="sq"></span>CITY COMFORT INDEX</div>'
     '<div class="chip muted">OPEN-METEO · DBT · DUCKDB</div></div>',
     unsafe_allow_html=True,
 )
 st.markdown(
     """
     <div class="hero">
-      <h1><span class="lt">City Comfort</span> <span class="dk">Index</span></h1>
+      <h1>City Comfort Index</h1>
       <p>HOW PLEASANT IS THE WEATHER ACROSS SPAIN'S LARGEST CITIES? A LIVE COMFORT,
       CLIMATE AND AIR-QUALITY VIEW BUILT ON OPEN-METEO DATA — STRAIGHT FROM THE DBT MARTS.</p>
     </div>
@@ -532,11 +544,11 @@ st.markdown("")
 # KPI cards
 # --------------------------------------------------------------------------- #
 k1, k2, k3, k4 = st.columns(4)
-k1.metric("Cities in view", len(selected_cities))
-k2.metric("Avg temperature", f"{w['temperature_2m_mean'].mean():.1f} °C")
+k1.metric("Cities", len(selected_cities))
+k2.metric("Avg temp", f"{w['temperature_2m_mean'].mean():.1f} °C")
 k3.metric("Comfy days", int(ranking["comfortable_days"].sum()),
           help="Comfortable days: mean temp 18–26 °C and not rainy, windy, hot or freezing.")
-k4.metric("Most comfortable", best_city["city_name"],
+k4.metric("Top city", best_city["city_name"],
           f"index {best_city['overall_comfort_index']:.1f}")
 
 st.markdown("")
@@ -545,43 +557,27 @@ st.markdown("")
 # --------------------------------------------------------------------------- #
 # Gauges
 # --------------------------------------------------------------------------- #
-def gauge(value, title, vmin, vmax, steps, bar_color, suffix=""):
-    fig = go.Figure(go.Indicator(
-        mode="gauge+number",
-        value=round(float(value), 1),
-        number={"suffix": suffix, "font": {"family": "JetBrains Mono", "size": 28, "color": INK}},
-        title={"text": title, "font": {"family": "Darker Grotesque", "size": 20, "color": INK}},
-        gauge={
-            "axis": {"range": [vmin, vmax], "tickcolor": MUTED, "tickfont": {"size": 9}},
-            "bar": {"color": bar_color, "thickness": 0.3},
-            "bgcolor": "rgba(0,0,0,0)",
-            "bordercolor": INK, "borderwidth": 2,
-            "steps": steps,
-        },
-    ))
-    fig.update_layout(height=205, margin=dict(l=18, r=18, t=40, b=6),
-                      paper_bgcolor="rgba(0,0,0,0)", font=dict(color=INK))
-    return fig
+def meter_card(label, value, vmin, vmax, color, suffix=""):
+    """A brutalist meter: big value + a progress bar showing where it sits on its scale."""
+    pct = max(0.0, min(100.0, (float(value) - vmin) / (vmax - vmin) * 100))
+    return f"""
+    <div class="meter-card">
+      <div class="meter-label">{label}</div>
+      <div class="meter-value">{float(value):.1f}{suffix}</div>
+      <div class="meter-track"><div class="meter-fill" style="width:{pct:.0f}%;background:{color};"></div></div>
+      <div class="meter-scale"><span>{vmin:g}</span><span>{vmax:g}</span></div>
+    </div>
+    """
 
 
 section("Instruments", "At a glance")
+aqi_mean = a["avg_european_aqi"].mean() if not a.empty else 0.0
 g1, g2, g3 = st.columns(3)
-with g1:
-    st.plotly_chart(gauge(
-        ranking["overall_comfort_index"].mean(), "OVERALL COMFORT", -20, 100,
-        [{"range": [-20, 0], "color": "#fde8e4"}, {"range": [0, 40], "color": "#fbf3dd"},
-         {"range": [40, 100], "color": "#e3f5ea"}], TERRACOTTA), width="stretch")
-with g2:
-    st.plotly_chart(gauge(
-        w["temperature_2m_mean"].mean(), "AVG TEMPERATURE", 0, 40,
-        [{"range": [0, 18], "color": "#e6eefb"}, {"range": [18, 26], "color": "#e3f5ea"},
-         {"range": [26, 40], "color": "#fde8e4"}], COBALT, " °C"), width="stretch")
-with g3:
-    aqi_mean = a["avg_european_aqi"].mean() if not a.empty else 0
-    st.plotly_chart(gauge(
-        aqi_mean, "AIR QUALITY (AQI)", 0, 100,
-        [{"range": [0, 25], "color": "#e3f5ea"}, {"range": [25, 50], "color": "#fbf3dd"},
-         {"range": [50, 100], "color": "#fde8e4"}], GREEN), width="stretch")
+g1.markdown(meter_card("Overall comfort", ranking["overall_comfort_index"].mean(), -20, 100, TERRACOTTA),
+            unsafe_allow_html=True)
+g2.markdown(meter_card("Comfort score", ranking["comfort_score"].mean(), 0, 100, OCHRE),
+            unsafe_allow_html=True)
+g3.markdown(meter_card("Air quality · AQI", aqi_mean, 0, 100, GREEN), unsafe_allow_html=True)
 
 
 # --------------------------------------------------------------------------- #

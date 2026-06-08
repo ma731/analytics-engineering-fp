@@ -634,7 +634,7 @@ live_status()
 # --------------------------------------------------------------------------- #
 section("Plan", "Find your ideal city")
 st.markdown(
-    '<div class="footnote" style="margin:-.35rem 0 .7rem">Set what matters to you — '
+    '<div class="footnote" style="margin:.7rem 0 1.1rem">Set what matters to you — '
     "we score all 58 cities and name each one's best month to visit. This searches "
     "every city, independent of the selection above.</div>",
     unsafe_allow_html=True,

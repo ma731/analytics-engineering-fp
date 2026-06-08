@@ -83,10 +83,13 @@ st.markdown(
       @import url('https://fonts.googleapis.com/css2?family=Darker+Grotesque:wght@600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
 
       html, body, [class*="css"] {{ font-family: 'JetBrains Mono', monospace; color: {INK}; }}
+      /* Split two-tone background (cream / warm terracotta wash, diagonal) */
       .stApp {{ background:
-          radial-gradient(1100px 420px at 86% -8%, rgba(221,97,76,.10), transparent 60%),
-          radial-gradient(900px 420px at 0% 0%, rgba(218,161,68,.10), transparent 55%),
-          {CREAM}; }}
+          radial-gradient(900px 360px at 90% -6%, rgba(221,97,76,.12), transparent 60%),
+          linear-gradient(116deg,
+            {CREAM} 0%, {CREAM} 55%,
+            #F3E4DD 55%, #F6EEDC 100%);
+          background-attachment: fixed; }}
       /* Website feel: hide Streamlit chrome */
       #MainMenu, footer {{ visibility: hidden; }}
       [data-testid="stToolbar"] {{ display: none; }}
@@ -117,6 +120,10 @@ st.markdown(
         border: 4px solid {INK}; box-shadow: 10px 10px 0 {INK}; margin-bottom: 1.7rem;
       }}
       .hero h1 {{ margin: 0; font-size: clamp(2rem, 4.4vw, 2.9rem); line-height: .92; color: #fff !important; }}
+      .hero h1 .lt {{ color: #FFFFFF !important; }}
+      .hero h1 .dk {{ color: {INK} !important; }}
+      .wm-dk {{ color: {INK}; }}
+      .wm-ac {{ color: {TERRACOTTA}; }}
       .hero p {{ margin: .5rem 0 0; font-family: 'JetBrains Mono', monospace;
         font-size: clamp(.72rem, 1vw, .82rem); font-weight: 600; max-width: 720px; }}
 
@@ -358,14 +365,15 @@ best_city = ranking.iloc[0]
 # Top bar + hero
 # --------------------------------------------------------------------------- #
 st.markdown(
-    '<div class="topbar"><div class="wordmark"><span class="sq"></span>CITY COMFORT INDEX</div>'
+    '<div class="topbar"><div class="wordmark"><span class="sq"></span>'
+    '<span class="wm-dk">CITY COMFORT</span> <span class="wm-ac">INDEX</span></div>'
     '<div class="chip muted">OPEN-METEO · DBT · DUCKDB</div></div>',
     unsafe_allow_html=True,
 )
 st.markdown(
     """
     <div class="hero">
-      <h1>City Comfort Index</h1>
+      <h1><span class="lt">City Comfort</span> <span class="dk">Index</span></h1>
       <p>HOW PLEASANT IS THE WEATHER ACROSS SPAIN'S LARGEST CITIES? A LIVE COMFORT,
       CLIMATE AND AIR-QUALITY VIEW BUILT ON OPEN-METEO DATA — STRAIGHT FROM THE DBT MARTS.</p>
     </div>

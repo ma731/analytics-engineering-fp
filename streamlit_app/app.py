@@ -579,13 +579,13 @@ if thumb_cities:
             )
             st.caption(c)
 
-# Inline official tourism video player (for the major cities that have a verified one)
+# Official tourism video — shown directly on the page (the 5 major cities)
 video_cities = [c for c in selected_cities if c in CITY_VIDEO]
 if video_cities:
-    with st.expander("▶  Watch an official city tourism video"):
-        vpick = st.selectbox("City", video_cities, key="tourism_video_pick")
-        st.video(CITY_VIDEO[vpick])
-        st.caption("Official tourism-board video. Other cities link out to YouTube via the ▶ on the card.")
+    section("Watch", "Official tourism video")
+    vpick = st.selectbox("Pick a city", video_cities, key="tourism_video_pick")
+    st.video(CITY_VIDEO[vpick])
+    st.caption("Official tourism-board video. Cities without one link out via the ▶ on the spotlight card.")
 
 st.markdown("")
 

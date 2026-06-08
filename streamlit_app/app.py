@@ -62,6 +62,31 @@ CITY_BLURBS = {
     "Sevilla": "Plaza de España — Andalusian sun and tilework.",
     "Bilbao": "The Guggenheim's titanium curves on the Nervión.",
 }
+# Official municipal (city hall) websites — shown as a link on each spotlight card.
+CITY_GOV = {
+    "Madrid": "https://www.madrid.es",
+    "Barcelona": "https://www.barcelona.cat",
+    "Valencia": "https://www.valencia.es",
+    "Sevilla": "https://www.sevilla.org",
+    "Bilbao": "https://www.bilbao.eus",
+    "Zaragoza": "https://www.zaragoza.es",
+    "Málaga": "https://www.malaga.eu",
+    "Murcia": "https://www.murcia.es",
+    "Palma": "https://www.palma.cat",
+    "Valladolid": "https://www.valladolid.es",
+    "Granada": "https://www.granada.org",
+    "Córdoba": "https://www.cordoba.es",
+    "Alicante": "https://www.alicante.es",
+    "Vitoria-Gasteiz": "https://www.vitoria-gasteiz.org",
+    "Donostia-San Sebastián": "https://www.donostia.eus",
+    "Santander": "https://www.santander.es",
+    "Pamplona": "https://www.pamplona.es",
+    "Logroño": "https://www.logrono.es",
+    "A Coruña": "https://www.coruna.gal",
+    "Gijón": "https://www.gijon.es",
+    "Oviedo": "https://www.oviedo.es",
+    "Vigo": "https://www.vigo.org",
+}
 COMFORT_SCALE = [DANGER, TERRACOTTA, OCHRE, GREEN]   # low -> high (good)
 AQI_SCALE = [GREEN, OCHRE, TERRACOTTA, DANGER]       # low (good) -> high (bad)
 HEAT_SCALE = ["#1E3A8A", COBALT, GREEN, OCHRE, TERRACOTTA]  # cold -> hot
@@ -83,12 +108,11 @@ st.markdown(
       @import url('https://fonts.googleapis.com/css2?family=Darker+Grotesque:wght@600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
 
       html, body, [class*="css"] {{ font-family: 'JetBrains Mono', monospace; color: {INK}; }}
-      /* Split two-tone background (cream / warm terracotta wash, diagonal) */
+      /* Split two-tone background: warm cream (left) meets cool blue (right) */
       .stApp {{ background:
-          radial-gradient(900px 360px at 90% -6%, rgba(221,97,76,.12), transparent 60%),
-          linear-gradient(116deg,
-            {CREAM} 0%, {CREAM} 55%,
-            #F3E4DD 55%, #F6EEDC 100%);
+          linear-gradient(118deg,
+            #FCEFE7 0%, #FBE8DC 47%,
+            #E4ECF7 47%, #DCE7F5 100%);
           background-attachment: fixed; }}
       /* Website feel: hide Streamlit chrome */
       #MainMenu, footer {{ visibility: hidden; }}
@@ -405,34 +429,43 @@ live_status()
 # City spotlight — auto-rotating cinematic carousel with real city photos
 # --------------------------------------------------------------------------- #
 section("City spotlight", "Postcards from the data")
-photo_cities = [c for c in CITY_PHOTOS if c in selected_cities] or list(CITY_PHOTOS)
+# The carousel rotates through the cities you select: a photo for the majors,
+# a branded card otherwise. Each card links to the city's town hall when known.
+spotlight_cities = selected_cities
 
 
 @st.fragment(run_every="4s")
 def city_spotlight() -> None:
-    n = len(photo_cities)
+    n = len(spotlight_cities)
     idx = st.session_state.get("spot_idx", 0) % n
     st.session_state["spot_idx"] = idx + 1
-    city = photo_cities[idx]
-    b64 = img_b64(CITY_PHOTOS[city])
-    bg = f"url(data:image/jpeg;base64,{b64})" if b64 else "linear-gradient(120deg,#DD614C,#C2410C)"
+    city = spotlight_cities[idx]
+    b64 = img_b64(CITY_PHOTOS[city]) if city in CITY_PHOTOS else ""
+    bg = f"url(data:image/jpeg;base64,{b64})" if b64 else "linear-gradient(125deg,#DD614C,#7C2D12)"
     row = summary[summary["city_name"] == city]
     temp = f"{row['avg_temperature_c'].iloc[0]:.1f} °C" if not row.empty else "—"
     comfort = f"{row['overall_comfort_index'].iloc[0]:.0f}" if not row.empty else "—"
     aqi_val = row["avg_air_quality_index"].iloc[0] if not row.empty else None
     aqi = f"{aqi_val:.0f}" if aqi_val is not None and pd.notna(aqi_val) else "—"
+    blurb = CITY_BLURBS.get(city, "One of Spain's 58 monitored cities.")
+    gov = CITY_GOV.get(city)
+    gov_chip = (
+        f'<a class="spot-stat" style="text-decoration:none" href="{gov}" '
+        f'target="_blank" rel="noopener">CITY HALL &#8599;</a>'
+    ) if gov else ""
     st.markdown(
         f"""
         <div class="spotlight" style="background-image:{bg};">
           <div class="spot-play">&#9654;</div>
           <div class="spot-inner">
-            <div class="spot-kicker">City spotlight &middot; {idx + 1}/{n}</div>
+            <div class="spot-kicker">City spotlight &middot; {idx + 1}/{n} &middot; from your selection</div>
             <div class="spot-city">{city}</div>
-            <div class="spot-blurb">{CITY_BLURBS.get(city, "")}</div>
+            <div class="spot-blurb">{blurb}</div>
             <div class="spot-stats">
               <span class="spot-stat">{temp}</span>
               <span class="spot-stat">COMFORT {comfort}</span>
               <span class="spot-stat">AQI {aqi}</span>
+              {gov_chip}
             </div>
           </div>
         </div>
@@ -443,17 +476,18 @@ def city_spotlight() -> None:
 
 city_spotlight()
 
-# Thumbnail strip of all spotlight cities
-tcols = st.columns(len(photo_cities))
-for col, c in zip(tcols, photo_cities):
-    b = img_b64(CITY_PHOTOS[c])
-    with col:
-        if b:
+# Thumbnail strip — photo cities within the current selection
+thumb_cities = [c for c in CITY_PHOTOS if c in selected_cities]
+if thumb_cities:
+    tcols = st.columns(len(thumb_cities))
+    for col, c in zip(tcols, thumb_cities):
+        b = img_b64(CITY_PHOTOS[c])
+        with col:
             st.markdown(
                 f'<img class="thumb" src="data:image/jpeg;base64,{b}" alt="{c}" />',
                 unsafe_allow_html=True,
             )
-        st.caption(c)
+            st.caption(c)
 
 st.markdown("")
 
@@ -497,9 +531,9 @@ section("Instruments", "At a glance")
 g1, g2, g3 = st.columns(3)
 with g1:
     st.plotly_chart(gauge(
-        ranking["overall_comfort_index"].mean(), "OVERALL COMFORT", -20, 40,
-        [{"range": [-20, 0], "color": "#fde8e4"}, {"range": [0, 20], "color": "#fbf3dd"},
-         {"range": [20, 40], "color": "#e3f5ea"}], TERRACOTTA), width="stretch")
+        ranking["overall_comfort_index"].mean(), "OVERALL COMFORT", -20, 100,
+        [{"range": [-20, 0], "color": "#fde8e4"}, {"range": [0, 40], "color": "#fbf3dd"},
+         {"range": [40, 100], "color": "#e3f5ea"}], TERRACOTTA), width="stretch")
 with g2:
     st.plotly_chart(gauge(
         w["temperature_2m_mean"].mean(), "AVG TEMPERATURE", 0, 40,

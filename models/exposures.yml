@@ -1,0 +1,24 @@
+version: 2
+
+exposures:
+  - name: city_comfort_index_dashboard
+    label: "City Comfort Index dashboard"
+    type: dashboard
+    maturity: high
+    url: https://city-comfort-index.streamlit.app
+    description: >
+      The City Comfort Index Streamlit app. It reads only from the mart models
+      (never the raw files) to render the KPI cards, the comfort ranking and map,
+      the four-season comparison, the extreme-events view, and the city table.
+      Declared as a dbt exposure so the dashboard is part of the project's
+      lineage graph and `dbt build --select +exposure:city_comfort_index_dashboard`
+      rebuilds exactly the models it depends on.
+    depends_on:
+      - ref('mart_city_weather_summary')
+      - ref('mart_city_season_summary')
+      - ref('mart_extreme_events')
+      - ref('fct_city_weather_day')
+      - ref('fct_air_quality_city_day')
+    owner:
+      name: moanv2 team
+      email: marco.ortiztogashi@student.ie.edu

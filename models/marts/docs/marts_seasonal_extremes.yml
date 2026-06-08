@@ -1,0 +1,115 @@
+version: 2
+
+models:
+  - name: mart_city_season_summary
+    description: >
+      Seasonal City Comfort summary. Grain: one row per city per meteorological
+      season (Winter/Spring/Summer/Autumn). Built over a full year of weather so
+      the dashboard can compare comfort across the four seasons.
+    columns:
+      - name: city_season_sk
+        description: "Surrogate primary key (one row per city per season)."
+        tests:
+          - unique
+          - not_null
+      - name: location_sk
+        description: "Foreign key to dim_location."
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_location')
+                field: location_sk
+      - name: location_id
+        description: "Natural location key."
+        tests:
+          - not_null
+      - name: city_name
+        description: "City name."
+        tests:
+          - not_null
+      - name: season
+        description: "Meteorological season (Winter, Spring, Summer, Autumn)."
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["Winter", "Spring", "Summer", "Autumn"]
+      - name: total_days
+        description: "Days observed in the season for the city."
+      - name: avg_temperature_c
+        description: "Average daily mean temperature in the season (Celsius)."
+      - name: avg_max_temperature_c
+        description: "Average daily maximum temperature in the season (Celsius)."
+      - name: avg_min_temperature_c
+        description: "Average daily minimum temperature in the season (Celsius)."
+      - name: total_precipitation_mm
+        description: "Total precipitation in the season (mm)."
+      - name: comfortable_days
+        description: "Count of comfortable days in the season."
+      - name: rainy_days
+        description: "Count of rainy days in the season."
+      - name: hot_days
+        description: "Count of extreme-heat days in the season."
+      - name: freezing_days
+        description: "Count of freezing days in the season."
+      - name: comfort_score
+        description: "Share of comfortable days in the season, 0-100."
+        tests:
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 0
+                max_value: 100
+
+  - name: mart_extreme_events
+    description: >
+      Extreme-weather event summary. Grain: one row per city. Counts hot and
+      heatwave days, freezing and cold-snap days, and heavy-rain days, plus the
+      longest consecutive streak of each, derived from int_weather_extreme_streaks
+      using window functions.
+    columns:
+      - name: location_sk
+        description: "Surrogate primary key (one row per city)."
+        tests:
+          - unique
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_location')
+                field: location_sk
+      - name: location_id
+        description: "Natural location key."
+        tests:
+          - not_null
+      - name: city_name
+        description: "City name."
+        tests:
+          - not_null
+      - name: total_days
+        description: "Total days observed for the city."
+      - name: hot_days
+        description: "Days with maximum temperature above 35 C."
+      - name: heatwave_days
+        description: "Days inside a heatwave (a run of >=3 consecutive hot days)."
+        tests:
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 0
+                max_value: 366
+      - name: longest_heatwave
+        description: "Length of the longest consecutive hot-day run."
+        tests:
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 0
+                max_value: 366
+      - name: freezing_days
+        description: "Days with minimum temperature below 0 C."
+      - name: cold_snap_days
+        description: "Days inside a cold snap (a run of >=3 consecutive freezing days)."
+      - name: longest_cold_snap
+        description: "Length of the longest consecutive freezing-day run."
+      - name: heavy_rain_days
+        description: "Days with at least 20 mm of rain."
+      - name: longest_wet_spell
+        description: "Length of the longest consecutive heavy-rain run."

@@ -13,6 +13,7 @@ final as (
         city_name,
         country_code,
         weather_date,
+        {{ season_from_date('weather_date') }} as season,
         temperature_2m_max,
         temperature_2m_min,
         temperature_2m_mean,

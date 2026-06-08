@@ -30,13 +30,13 @@ joined as (
         weather.rain_sum,
         weather.snowfall_sum,
         weather.wind_speed_10m_max,
+        weather.extracted_at,
+        weather.weather_daily_sk as city_day_weather_sk,
         weather.temperature_2m_max - weather.temperature_2m_min as temp_range_c,
         weather.rain_sum > 1.0 as is_rainy,
         weather.wind_speed_10m_max > 40.0 as is_windy,
         weather.temperature_2m_max > 35.0 as is_hot,
-        weather.temperature_2m_min < 0.0 as is_freezing,
-        weather.extracted_at,
-        weather.weather_daily_sk as city_day_weather_sk
+        weather.temperature_2m_min < 0.0 as is_freezing
 
     from weather
     inner join locations

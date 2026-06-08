@@ -4,6 +4,13 @@ sources:
   - name: open_meteo
     description: "Raw data extracted from the Open-Meteo API via the extraction script."
     schema: raw
+    # Every raw table carries the extraction timestamp, so source freshness is
+    # checked against it. Thresholds suit a daily-scheduled extraction; run with
+    # `dbt source freshness`.
+    loaded_at_field: extracted_at
+    freshness:
+      warn_after: {count: 36, period: hour}
+      error_after: {count: 7, period: day}
     tables:
       - name: raw_locations
         description: >

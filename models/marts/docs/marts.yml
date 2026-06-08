@@ -5,24 +5,32 @@ models:
     description: >
       Location dimension. One row per city selected for extraction.
       Conformed dimension referenced by all fact tables via location_sk.
+    config:
+      contract:
+        enforced: true
     columns:
       - name: location_sk
+        data_type: varchar
         description: "Surrogate primary key for the location."
         tests:
           - unique
           - not_null
       - name: location_id
+        data_type: integer
         description: "Natural key from the Open-Meteo Geocoding API."
         tests:
           - unique
           - not_null
       - name: city_name
+        data_type: varchar
         description: "City name."
         tests:
           - not_null
       - name: country
+        data_type: varchar
         description: "Country name."
       - name: country_code
+        data_type: varchar
         description: "ISO country code."
         tests:
           - not_null
@@ -30,8 +38,10 @@ models:
               arguments:
                 values: ["ES"]
       - name: admin1
+        data_type: varchar
         description: "First-level administrative division (region/state)."
       - name: latitude
+        data_type: double
         description: "Latitude coordinate."
         tests:
           - not_null
@@ -40,6 +50,7 @@ models:
                 min_value: -90
                 max_value: 90
       - name: longitude
+        data_type: double
         description: "Longitude coordinate."
         tests:
           - not_null
@@ -48,10 +59,13 @@ models:
                 min_value: -180
                 max_value: 180
       - name: timezone
+        data_type: varchar
         description: "IANA timezone string."
       - name: elevation
+        data_type: double
         description: "Elevation in meters above sea level."
       - name: population
+        data_type: integer
         description: "City population."
 
   - name: fct_city_weather_day

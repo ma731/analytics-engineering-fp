@@ -6,13 +6,18 @@ models:
       Seasonal City Comfort summary. Grain: one row per city per meteorological
       season (Winter/Spring/Summer/Autumn). Built over a full year of weather so
       the dashboard can compare comfort across the four seasons.
+    config:
+      contract:
+        enforced: true
     columns:
       - name: city_season_sk
+        data_type: varchar
         description: "Surrogate primary key (one row per city per season)."
         tests:
           - unique
           - not_null
       - name: location_sk
+        data_type: varchar
         description: "Foreign key to dim_location."
         tests:
           - not_null
@@ -21,14 +26,20 @@ models:
                 to: ref('dim_location')
                 field: location_sk
       - name: location_id
+        data_type: integer
         description: "Natural location key."
         tests:
           - not_null
       - name: city_name
+        data_type: varchar
         description: "City name."
         tests:
           - not_null
+      - name: country_code
+        data_type: varchar
+        description: "ISO country code."
       - name: season
+        data_type: varchar
         description: "Meteorological season (Winter, Spring, Summer, Autumn)."
         tests:
           - not_null
@@ -36,24 +47,38 @@ models:
               arguments:
                 values: ["Winter", "Spring", "Summer", "Autumn"]
       - name: total_days
+        data_type: bigint
         description: "Days observed in the season for the city."
+        tests:
+          - non_negative
       - name: avg_temperature_c
+        data_type: double
         description: "Average daily mean temperature in the season (Celsius)."
       - name: avg_max_temperature_c
+        data_type: double
         description: "Average daily maximum temperature in the season (Celsius)."
       - name: avg_min_temperature_c
+        data_type: double
         description: "Average daily minimum temperature in the season (Celsius)."
       - name: total_precipitation_mm
+        data_type: double
         description: "Total precipitation in the season (mm)."
       - name: comfortable_days
+        data_type: bigint
         description: "Count of comfortable days in the season."
+        tests:
+          - non_negative
       - name: rainy_days
+        data_type: bigint
         description: "Count of rainy days in the season."
       - name: hot_days
+        data_type: bigint
         description: "Count of extreme-heat days in the season."
       - name: freezing_days
+        data_type: bigint
         description: "Count of freezing days in the season."
       - name: comfort_score
+        data_type: double
         description: "Share of comfortable days in the season, 0-100."
         tests:
           - dbt_expectations.expect_column_values_to_be_between:
@@ -67,8 +92,12 @@ models:
       heatwave days, freezing and cold-snap days, and heavy-rain days, plus the
       longest consecutive streak of each, derived from int_weather_extreme_streaks
       using window functions.
+    config:
+      contract:
+        enforced: true
     columns:
       - name: location_sk
+        data_type: varchar
         description: "Surrogate primary key (one row per city)."
         tests:
           - unique
@@ -78,38 +107,68 @@ models:
                 to: ref('dim_location')
                 field: location_sk
       - name: location_id
+        data_type: integer
         description: "Natural location key."
         tests:
           - not_null
       - name: city_name
+        data_type: varchar
         description: "City name."
         tests:
           - not_null
+      - name: country_code
+        data_type: varchar
+        description: "ISO country code."
       - name: total_days
+        data_type: bigint
         description: "Total days observed for the city."
+        tests:
+          - non_negative
       - name: hot_days
+        data_type: bigint
         description: "Days with maximum temperature above 35 C."
+        tests:
+          - non_negative
       - name: heatwave_days
+        data_type: bigint
         description: "Days inside a heatwave (a run of >=3 consecutive hot days)."
         tests:
+          - non_negative
           - dbt_expectations.expect_column_values_to_be_between:
               arguments:
                 min_value: 0
                 max_value: 366
       - name: longest_heatwave
+        data_type: bigint
         description: "Length of the longest consecutive hot-day run."
         tests:
+          - non_negative
           - dbt_expectations.expect_column_values_to_be_between:
               arguments:
                 min_value: 0
                 max_value: 366
       - name: freezing_days
+        data_type: bigint
         description: "Days with minimum temperature below 0 C."
+        tests:
+          - non_negative
       - name: cold_snap_days
+        data_type: bigint
         description: "Days inside a cold snap (a run of >=3 consecutive freezing days)."
+        tests:
+          - non_negative
       - name: longest_cold_snap
+        data_type: bigint
         description: "Length of the longest consecutive freezing-day run."
+        tests:
+          - non_negative
       - name: heavy_rain_days
+        data_type: bigint
         description: "Days with at least 20 mm of rain."
+        tests:
+          - non_negative
       - name: longest_wet_spell
+        data_type: bigint
         description: "Length of the longest consecutive heavy-rain run."
+        tests:
+          - non_negative

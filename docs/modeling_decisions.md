@@ -99,3 +99,30 @@ testable (`accepted_values`), and editable without touching SQL.
 marts it reads. This puts the dashboard in the lineage graph, documents the marts-only contract
 (the app never reads raw files), and lets `dbt build --select +exposure:city_comfort_index_dashboard`
 rebuild exactly the models the dashboard needs.
+
+## Production-grade testing & governance
+
+The project goes past data tests to also test the *logic* and lock down the *interface*:
+
+- **Unit tests** (`models/unit_tests.yml`) feed mocked input rows to a model and assert its output:
+  the `is_comfortable` rule, the `season_from_date` macro, and the heatwave window-function logic.
+  These run at build time and need no warehouse data — they catch logic regressions a data test can't.
+- **Custom generic test** `non_negative` (`tests/generic/`) is reused across the count columns,
+  alongside the two singular tests.
+- **Model contracts** enforce column data types on `dim_location`, `mart_city_season_summary`, and
+  `mart_extreme_events`, so a schema drift fails the build instead of silently reaching the dashboard.
+- **Source freshness** (`extracted_at`) and **persist_docs** (descriptions written into DuckDB) round
+  out the governance story.
+
+## Best month & anomalies
+
+`mart_city_month_summary` rolls comfort to one row per city per calendar month, which the planner uses
+to name each city's "best month to visit". `mart_temperature_anomaly` compares each day's temperature
+to that city's seasonal average with window functions, expressing the deviation as a z-score — the
+basis for the "unusually warm/cold days" view.
+
+## Incremental forecast
+
+`fct_forecast_city_day` is materialized **incremental**, keyed on the extraction timestamp, so each
+extraction run appends its forecast snapshot rather than overwriting. A single run behaves like a table;
+a scheduled run grows a real forecast-accuracy history.

@@ -83,7 +83,7 @@ dbt build         # runs every model and every test
 seeds the AQI health bands, then runs the full test suite (PK uniqueness, not-null,
 foreign-key relationships, accepted values, range expectations, and two custom singular tests).
 
-Current run: **15 models, 95 tests, 1 seed — all passing.**
+Current run: **17 models, 3 unit tests, 1 seed — 146 checks, all green.**
 
 ## 4. How do I launch the dashboard?
 
@@ -93,9 +93,18 @@ python -m streamlit run streamlit_app/app.py
 ```
 
 The dashboard (the **City Comfort Index**) has a light "brutalist website" design with a sticky nav,
-a terracotta hero, a City Spotlight photo carousel, gauge instruments, an animated play-button
-scatter, a gradient trend, a radar, a heatmap and a map. It has a city filter (with a "show all 58
-cities" toggle), a date filter, and reads **only from the mart models**, never the raw files.
+a terracotta hero and an animated weather-chart background. Highlights:
+
+- a **"Find your ideal city" planner** — weight warmth / comfort / clean-air / dry / calm, pick a
+  season, optionally avoid heatwave-prone cities, and it ranks all 58 cities with a match score and
+  each city's best month;
+- a **four-season** comfort comparison, an **extreme-events** view, a **temperature-anomaly** view,
+  a **forecast-accuracy** view, and a **data-quality & lineage** panel;
+- a City Spotlight photo carousel (with a per-city slogan), an animated comfort **leaderboard**,
+  a play-button scatter, a gradient trend, a radar, a heatmap and a map.
+
+It has a city filter (with a "show all 58 cities" toggle), a date filter, dual Spain/Canary live
+clocks, and reads **only from the mart models**, never the raw files.
 
 ## 5. What final models power the dashboard?
 
@@ -103,7 +112,9 @@ cities" toggle), a date filter, and reads **only from the mart models**, never t
 |---|---|---|
 | `mart_city_weather_summary` | one row per city | KPI cards, comfort ranking, map |
 | `mart_city_season_summary` | one row per city per season | four-season comfort comparison |
+| `mart_city_month_summary` | one row per city per month | "best month to visit" in the planner |
 | `mart_extreme_events` | one row per city | heatwave / cold-snap / heavy-rain view |
+| `mart_temperature_anomaly` | one row per city per day | unusually warm/cold days (z-score) |
 | `fct_city_weather_day` | one row per city per day | temperature trend, day-type breakdown, distribution |
 | `fct_air_quality_city_day` | one row per city per day | air-quality comparison + EEA health band |
 
@@ -115,9 +126,23 @@ Beyond the three-layer star schema, the project exercises the dbt toolkit end to
 
 - **Seed** — `seeds/aqi_health_bands.csv` (EEA AQI bands), range-joined into the air-quality fact.
 - **Macro** — `season_from_date()` classifies each date into its meteorological season.
-- **Window functions** — `int_weather_extreme_streaks` uses gaps-and-islands to find consecutive heatwave / cold-snap / wet-spell runs.
+- **Window functions** — `int_weather_extreme_streaks` (gaps-and-islands streaks) and `mart_temperature_anomaly` (seasonal z-scores).
+- **Unit tests** — `models/unit_tests.yml` asserts the `is_comfortable` rule, the season macro, and the heatwave logic with mocked inputs.
+- **Custom generic test** — `non_negative` (in `tests/generic/`), reused across the count columns.
+- **Model contracts** — enforced column data types on `dim_location`, `mart_city_season_summary`, `mart_extreme_events`.
+- **Incremental model** — `fct_forecast_city_day` accumulates forecast snapshots across runs (unique key on the extraction timestamp).
+- **Source freshness** — `dbt source freshness` checks `extracted_at`; `persist_docs` writes descriptions into DuckDB.
 - **Exposure** — `models/exposures.yml` declares the Streamlit dashboard in the lineage graph, so `dbt build --select +exposure:city_comfort_index_dashboard` rebuilds exactly what it reads.
 - **Packages** — `dbt_utils` (surrogate keys), `dbt_expectations` (range tests), `dbt_date`.
+
+### Lineage
+
+The full dbt DAG — sources → staging → intermediate → marts → the dashboard exposure
+(regenerate with `dbt docs generate && python scripts/render_lineage_dag.py`):
+
+![dbt lineage DAG](docs/lineage_dag.png)
+
+For the interactive version: `dbt docs generate && dbt docs serve`.
 
 ## 6. What modeling choices did we make and why?
 
@@ -151,10 +176,11 @@ analytics-engineering-fp/
 │   ├── exposures.yml           # dashboard declared as a dbt exposure
 │   ├── staging/                # stg_* (4 views) + docs/tests
 │   ├── intermediate/           # int_* (4 views) + docs/tests
-│   └── marts/                  # dim/fct/mart (7 tables) + docs/tests
-├── tests/                      # 2 custom singular tests
+│   ├── marts/                  # dim/fct/mart (9 tables) + docs/tests
+│   └── unit_tests.yml          # dbt unit tests (logic with mocked inputs)
+├── tests/                      # 2 singular tests + generic/non_negative.sql
 ├── streamlit_app/app.py        # City Comfort Index dashboard
-├── docs/                       # screenshots + modeling_decisions.md
+├── docs/                       # lineage_dag.png + modeling_decisions.md
 ├── dbt_project.yml  packages.yml  profiles.yml  pyproject.toml
 └── README.md
 ```
@@ -171,6 +197,10 @@ Tests cover every category the rubric asks for:
   temperature, AQI, and comfort score.
 - **Custom singular tests** — `assert_aqi_non_negative.sql`,
   `assert_temperature_within_realistic_range.sql`.
+- **Custom generic test** — `non_negative` (reusable), applied across the count columns.
+- **Unit tests** — `models/unit_tests.yml` checks the transformation logic itself
+  (the comfort rule, the season macro, and heatwave detection) with mocked inputs.
+- **Model contracts** — enforced column data types on the dimension and key marts.
 
 ## Continuous integration
 

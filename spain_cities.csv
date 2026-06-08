@@ -1,0 +1,59 @@
+city_name,province,country,latitude,longitude,timezone,population,elevation_m
+Almería,Almería,Spain,36.8381,-2.4597,Europe/Madrid,200578,0
+Cádiz,Cádiz,Spain,36.5298,-6.2924,Europe/Madrid,115439,11
+Córdoba,Córdoba,Spain,37.8882,-4.7794,Europe/Madrid,322071,119
+Granada,Granada,Spain,37.1773,-3.5986,Europe/Madrid,229690,738
+Huelva,Huelva,Spain,37.2614,-6.9447,Europe/Madrid,143663,17
+Jaén,Jaén,Spain,37.7796,-3.7849,Europe/Madrid,111342,570
+Málaga,Málaga,Spain,36.7213,-4.4214,Europe/Madrid,579076,11
+Sevilla,Sevilla,Spain,37.3886,-5.9823,Europe/Madrid,684234,7
+Huesca,Huesca,Spain,42.1401,-0.4087,Europe/Madrid,53132,488
+Teruel,Teruel,Spain,40.3456,-1.1065,Europe/Madrid,35994,916
+Zaragoza,Zaragoza,Spain,41.6488,-0.8891,Europe/Madrid,675301,199
+Oviedo,Asturias,Spain,43.3614,-5.8593,Europe/Madrid,219686,232
+Palma,Illes Balears,Spain,39.5696,2.6502,Europe/Madrid,419366,13
+Las Palmas de Gran Canaria,Las Palmas,Spain,28.1235,-15.4366,Atlantic/Canary,379925,8
+Santa Cruz de Tenerife,Santa Cruz de Tenerife,Spain,28.4636,-16.2518,Atlantic/Canary,208688,4
+Santander,Cantabria,Spain,43.4623,-3.8099,Europe/Madrid,172539,16
+Albacete,Albacete,Spain,38.9943,-1.8585,Europe/Madrid,174336,686
+Ciudad Real,Ciudad Real,Spain,38.9848,-3.9273,Europe/Madrid,75104,628
+Cuenca,Cuenca,Spain,40.0704,-2.1374,Europe/Madrid,54898,946
+Guadalajara,Guadalajara,Spain,40.6293,-3.1669,Europe/Madrid,87484,685
+Toledo,Toledo,Spain,39.8628,-4.0273,Europe/Madrid,85811,529
+Ávila,Ávila,Spain,40.6566,-4.6812,Europe/Madrid,57949,1131
+Burgos,Burgos,Spain,42.3439,-3.6969,Europe/Madrid,174451,859
+León,León,Spain,42.5987,-5.5671,Europe/Madrid,122051,837
+Palencia,Palencia,Spain,42.0096,-4.5288,Europe/Madrid,77863,740
+Salamanca,Salamanca,Spain,40.9701,-5.6635,Europe/Madrid,143978,802
+Segovia,Segovia,Spain,40.9429,-4.1088,Europe/Madrid,51640,1005
+Soria,Soria,Spain,41.7665,-2.4790,Europe/Madrid,39821,1063
+Valladolid,Valladolid,Spain,41.6523,-4.7245,Europe/Madrid,298866,698
+Zamora,Zamora,Spain,41.5037,-5.7448,Europe/Madrid,60106,652
+Barcelona,Barcelona,Spain,41.3851,2.1734,Europe/Madrid,1636762,12
+Girona,Girona,Spain,41.9794,2.8214,Europe/Madrid,104232,70
+Lleida,Lleida,Spain,41.6176,0.6200,Europe/Madrid,140403,155
+Tarragona,Tarragona,Spain,41.1189,1.2445,Europe/Madrid,135570,68
+Alicante,Alicante,Spain,38.3452,-0.4810,Europe/Madrid,338577,3
+Castellón de la Plana,Castellón,Spain,39.9864,-0.0513,Europe/Madrid,170990,27
+Valencia,Valencia,Spain,39.4699,-0.3763,Europe/Madrid,792492,15
+Badajoz,Badajoz,Spain,38.8794,-6.9707,Europe/Madrid,150984,184
+Cáceres,Cáceres,Spain,39.4753,-6.3724,Europe/Madrid,96068,459
+A Coruña,A Coruña,Spain,43.3623,-8.4115,Europe/Madrid,245468,0
+Lugo,Lugo,Spain,43.0099,-7.5560,Europe/Madrid,98275,454
+Ourense,Ourense,Spain,42.3358,-7.8639,Europe/Madrid,104835,139
+Pontevedra,Pontevedra,Spain,42.4316,-8.6444,Europe/Madrid,83260,13
+Logroño,La Rioja,Spain,42.4627,-2.4449,Europe/Madrid,151113,384
+Madrid,Madrid,Spain,40.4168,-3.7038,Europe/Madrid,3223334,667
+Murcia,Murcia,Spain,37.9922,-1.1307,Europe/Madrid,459403,43
+Pamplona,Navarra,Spain,42.8125,-1.6458,Europe/Madrid,203944,446
+Bilbao,Bizkaia,Spain,43.2630,-2.9350,Europe/Madrid,346405,19
+Donostia-San Sebastián,Gipuzkoa,Spain,43.3183,-1.9812,Europe/Madrid,187415,5
+Vitoria-Gasteiz,Araba,Spain,42.8467,-2.6716,Europe/Madrid,253672,525
+Ceuta,Ceuta,Spain,35.8894,-5.3213,Europe/Madrid,83517,11
+Melilla,Melilla,Spain,35.2923,-2.9381,Europe/Madrid,84689,47
+Vigo,Pontevedra,Spain,42.2406,-8.7207,Europe/Madrid,293837,15
+Gijón,Asturias,Spain,43.5453,-5.6619,Europe/Madrid,268296,3
+Marbella,Málaga,Spain,36.5108,-4.8856,Europe/Madrid,147958,27
+Cartagena,Murcia,Spain,37.6257,-0.9966,Europe/Madrid,216108,10
+Ibiza,Illes Balears,Spain,38.9089,1.4321,Europe/Madrid,50643,5
+Jerez de la Frontera,Cádiz,Spain,36.6850,-6.1261,Europe/Madrid,213105,56

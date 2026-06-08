@@ -15,7 +15,6 @@ package-lock.yml
 __pycache__/
 *.pyc
 .claude/
-spain_cities.csv
 dbt_internal_packages/
 .gstack/
 

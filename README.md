@@ -35,14 +35,20 @@ go straight to `load_to_duckdb.py`. To regenerate them from the live API, see st
 The extractor pulls from four Open-Meteo endpoints (no API key required) and writes four CSVs.
 
 ```bash
-# default: all cities in spain_cities.csv
+# Pull the built-in list of major Spanish cities via the Open-Meteo geocoding API:
 python scripts/extract_open_meteo.py
 
-# optional: pass a smaller city subset
+# ...or a custom subset:
 python scripts/extract_open_meteo.py --cities Madrid Barcelona Valencia Sevilla Bilbao
 ```
 
-Or run the whole pipeline (extract 鈫?load 鈫?dbt build) in one command:
+> **About the 58 cities.** The canonical dataset used by the marts and dashboard is the
+> **58-city** set committed under `data/raw/open_meteo/` (city list in
+> [`spain_cities.csv`](spain_cities.csv)). The standard run **skips extraction** and uses
+> those committed CSVs, so the numbers always match. Re-running the extractor pulls a
+> comparable national set from the live API — use the committed CSVs to reproduce exactly.
+
+Or run the whole pipeline (extract -> load -> dbt build) in one command:
 
 ```bash
 bash scripts/run_pipeline.sh              # full run

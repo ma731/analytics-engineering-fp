@@ -231,5 +231,107 @@ def test_log_event_emits_json(capsys):
     assert parsed == {"event": "unit_test", "city": "Madrid", "n": 3}
 
 
+def test_get_ssl_context_falls_back_without_certifi(monkeypatch):
+    # Simulate certifi not being installed: importing it raises ImportError.
+    monkeypatch.setitem(sys.modules, "certifi", None)
+    import ssl
+
+    assert isinstance(ex.get_ssl_context(), ssl.SSLContext)
+
+
+# --------------------------------------------------------------------------- #
+# Endpoint fetch wrappers (get_json mocked — they just shape one payload)
+# --------------------------------------------------------------------------- #
+FULL_LOCATION = {**LOCATION, "latitude": 40.4, "longitude": -3.7, "timezone": "Europe/Madrid"}
+
+
+def test_fetch_recent_weather_tags_source(monkeypatch):
+    monkeypatch.setattr(ex, "get_json", lambda *a, **k: {
+        "daily": {"time": ["2026-05-01"], "temperature_2m_max": [20.0]}})
+    rows = ex.fetch_recent_weather(FULL_LOCATION, 30, EXTRACTED_AT)
+    assert rows[0]["source_name"] == "recent_weather"
+    assert rows[0]["temperature_2m_max"] == 20.0
+
+
+def test_fetch_forecast_tags_source(monkeypatch):
+    monkeypatch.setattr(ex, "get_json", lambda *a, **k: {
+        "daily": {"time": ["2026-06-01"], "temperature_2m_min": [11.0]}})
+    rows = ex.fetch_forecast(FULL_LOCATION, 7, EXTRACTED_AT)
+    assert rows[0]["source_name"] == "forecast"
+
+
+def test_fetch_air_quality_tags_source(monkeypatch):
+    monkeypatch.setattr(ex, "get_json", lambda *a, **k: {
+        "hourly": {"time": ["2026-05-01T00:00"], "pm10": [12.0]}})
+    rows = ex.fetch_air_quality(FULL_LOCATION, EXTRACTED_AT)
+    assert rows[0]["source_name"] == "air_quality"
+    assert rows[0]["pm10"] == 12.0
+
+
+# --------------------------------------------------------------------------- #
+# Parquet snapshot writer
+# --------------------------------------------------------------------------- #
+def test_write_parquet_snapshot_empty_returns_false(tmp_path):
+    assert ex.write_parquet_snapshot(tmp_path / "x.parquet", []) is False
+
+
+def test_write_parquet_snapshot_writes_file(tmp_path):
+    out = tmp_path / "part" / "data.parquet"
+    assert ex.write_parquet_snapshot(out, [{"a": 1, "b": "x"}]) is True
+    assert out.exists()
+
+
+def test_write_parquet_snapshot_skips_without_pyarrow(tmp_path, monkeypatch):
+    monkeypatch.setitem(sys.modules, "pyarrow", None)
+    out = tmp_path / "data.parquet"
+    assert ex.write_parquet_snapshot(out, [{"a": 1}]) is False
+    assert not out.exists()
+
+
+# --------------------------------------------------------------------------- #
+# main(): orchestration (all network + geocoding mocked)
+# --------------------------------------------------------------------------- #
+def _mock_pipeline(monkeypatch, *, fail_city=None):
+    """Stub geocoding + the three fetchers so main() runs without a network."""
+    def geo(city):
+        if city == fail_city:
+            raise ValueError(f"no geocoding result for {city}")
+        return {**FULL_LOCATION, "city_name": city}
+
+    monkeypatch.setattr(ex, "geocode_city", geo)
+    monkeypatch.setattr(ex, "fetch_recent_weather", lambda *a: [{"source_name": "recent_weather", "v": 1}])
+    monkeypatch.setattr(ex, "fetch_forecast", lambda *a: [{"source_name": "forecast", "v": 2}])
+    monkeypatch.setattr(ex, "fetch_air_quality", lambda *a: [{"source_name": "air_quality", "v": 3}])
+    monkeypatch.setattr(ex.time, "sleep", lambda _s: None)
+
+
+def test_main_writes_four_csvs(tmp_path, monkeypatch):
+    _mock_pipeline(monkeypatch)
+    rc = ex.main(["--cities", "Madrid", "Barcelona",
+                  "--output-dir", str(tmp_path), "--pause-seconds", "0"])
+    assert rc == 0
+    for name in ("raw_locations", "raw_weather_daily", "raw_forecast_daily", "raw_air_quality_hourly"):
+        assert (tmp_path / f"{name}.csv").exists()
+
+
+def test_main_skips_cities_without_geocode(tmp_path, monkeypatch):
+    _mock_pipeline(monkeypatch, fail_city="Atlantis")
+    rc = ex.main(["--cities", "Madrid", "Atlantis",
+                  "--output-dir", str(tmp_path), "--pause-seconds", "0"])
+    assert rc == 0
+    # only the geocodable city landed in the locations file
+    with (tmp_path / "raw_locations.csv").open(newline="", encoding="utf-8") as f:
+        rows = list(csv.DictReader(f))
+    assert [r["city_name"] for r in rows] == ["Madrid"]
+
+
+def test_main_snapshot_mode_writes_parquet_partition(tmp_path, monkeypatch):
+    _mock_pipeline(monkeypatch)
+    rc = ex.main(["--cities", "Madrid", "--output-dir", str(tmp_path),
+                  "--pause-seconds", "0", "--snapshot-mode"])
+    assert rc == 0
+    assert (tmp_path / "snapshots").is_dir()
+
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-v"]))

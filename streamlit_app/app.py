@@ -19,7 +19,6 @@ from __future__ import annotations
 import base64
 import re
 import unicodedata
-import urllib.parse
 from datetime import datetime, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -131,65 +130,7 @@ CITY_GOV = {
     "Melilla": "https://www.melilla.es",
     "Ibiza": "https://www.eivissa.es",
 }
-# Verified official tourism-board promo videos (5 majors; embedded inline).
-# Channels confirmed via YouTube oEmbed: Turisme de Barcelona, Visit València,
-# official "Ven a Sevilla", Bilbao Udala (Ayuntamiento), IFEMA Madrid tourism.
-CITY_VIDEO = {
-    "Madrid": "https://www.youtube.com/watch?v=oEbVbKufTII",
-    "Barcelona": "https://www.youtube.com/watch?v=knXxurBWKvQ",
-    "Valencia": "https://www.youtube.com/watch?v=AKl7EOR8k-8",
-    "Sevilla": "https://www.youtube.com/watch?v=LnV7IkZU-OY",
-    "Bilbao": "https://www.youtube.com/watch?v=rHbmRaaHdU4",
-}
-# Official regional tourism-board videos (autonomous communities). Every city
-# falls back to its region's video, so all but the 2 autonomous cities are covered.
-# All verified embeddable + official channel via YouTube oEmbed.
-REGION_VIDEO = {
-    "Andalucía": "https://www.youtube.com/watch?v=T083IwT5nW4",
-    "Aragón": "https://www.youtube.com/watch?v=aDjzfvx31TY",
-    "Asturias": "https://www.youtube.com/watch?v=bcu2zcBdkCk",
-    "Illes Balears": "https://www.youtube.com/watch?v=A_hiZC7NECY",
-    "Canarias": "https://www.youtube.com/watch?v=0F8kXqa9P6E",
-    "Cantabria": "https://www.youtube.com/watch?v=eSn9dvTpZiU",
-    "Castilla-La Mancha": "https://www.youtube.com/watch?v=bwwVHd-FJPg",
-    "Castilla y León": "https://www.youtube.com/watch?v=s-p9HhJS80k",
-    "Cataluña": "https://www.youtube.com/watch?v=AIeFZpiP4ow",
-    "Comunitat Valenciana": "https://www.youtube.com/watch?v=jDk_Fpp_dCo",
-    "Extremadura": "https://www.youtube.com/watch?v=HYDBX5DTE_w",
-    "Galicia": "https://www.youtube.com/watch?v=p0BTRJVx7es",
-    "La Rioja": "https://www.youtube.com/watch?v=1hHkE2KBrWc",
-    "Comunidad de Madrid": "https://www.youtube.com/watch?v=inOGghSYOGI",
-    "Región de Murcia": "https://www.youtube.com/watch?v=zvjfH7tYveA",
-    "Navarra": "https://www.youtube.com/watch?v=H4u2KsBZB9U",
-    "País Vasco": "https://www.youtube.com/watch?v=HY1nRGr_9aU",
-}
-_REGION_CITIES = {
-    "Andalucía": ["Almería", "Cádiz", "Córdoba", "Granada", "Huelva", "Jaén",
-                  "Málaga", "Sevilla", "Marbella", "Jerez de la Frontera"],
-    "Aragón": ["Huesca", "Teruel", "Zaragoza"],
-    "Asturias": ["Oviedo", "Gijón"],
-    "Illes Balears": ["Palma", "Ibiza"],
-    "Canarias": ["Las Palmas de Gran Canaria", "Santa Cruz de Tenerife"],
-    "Cantabria": ["Santander"],
-    "Castilla-La Mancha": ["Albacete", "Ciudad Real", "Cuenca", "Guadalajara", "Toledo"],
-    "Castilla y León": ["Ávila", "Burgos", "León", "Palencia", "Salamanca",
-                        "Segovia", "Soria", "Valladolid", "Zamora"],
-    "Cataluña": ["Barcelona", "Girona", "Lleida", "Tarragona"],
-    "Comunitat Valenciana": ["Alicante", "Castellón de la Plana", "Valencia"],
-    "Extremadura": ["Badajoz", "Cáceres"],
-    "Galicia": ["A Coruña", "Lugo", "Ourense", "Pontevedra", "Vigo"],
-    "La Rioja": ["Logroño"],
-    "Comunidad de Madrid": ["Madrid"],
-    "Región de Murcia": ["Murcia", "Cartagena"],
-    "Navarra": ["Pamplona"],
-    "País Vasco": ["Bilbao", "Donostia-San Sebastián", "Vitoria-Gasteiz"],
-}
-CITY_REGION = {c: r for r, cities in _REGION_CITIES.items() for c in cities}
 
-
-def city_video_url(city: str):
-    """Official video for a city: its own (5 majors), else its region's, else None."""
-    return CITY_VIDEO.get(city) or REGION_VIDEO.get(CITY_REGION.get(city, ""))
 COMFORT_SCALE = [DANGER, TERRACOTTA, OCHRE, GREEN]   # low -> high (good)
 AQI_SCALE = [GREEN, OCHRE, TERRACOTTA, DANGER]       # low (good) -> high (bad)
 HEAT_SCALE = ["#1E3A8A", COBALT, GREEN, OCHRE, TERRACOTTA]  # cold -> hot
@@ -304,18 +245,13 @@ st.markdown(
         font-size:clamp(2.4rem,5vw,3.6rem); line-height:.9; margin:.1rem 0 .25rem; text-transform:uppercase; }}
       .spot-blurb {{ color:#f1f1f1; font-family:'JetBrains Mono',monospace; font-size:.8rem;
         margin:0 0 .75rem; max-width:640px; }}
-      .spot-play {{ position:absolute; top:1.1rem; right:1.2rem; width:46px; height:46px;
-        border:2px solid #fff; color:#fff; display:flex; align-items:center; justify-content:center;
-        font-size:1.05rem; background:rgba(0,0,0,.28); }}
       .spot-stats {{ display:flex; gap:.5rem; flex-wrap:wrap; }}
       .spot-stat {{ background:rgba(255,255,255,.14); border:2px solid rgba(255,255,255,.6);
         color:#fff; padding:.3rem .6rem; font-size:.75rem; font-weight:700; }}
       .thumb {{ width:100%; height:78px; object-fit:cover; border:2px solid {INK}; display:block; }}
       /* Spotlight chips + the City Hall link share one colour (white), never browser-blue */
-      .spot-stat, a.spot-stat, a.spot-stat:link, a.spot-stat:visited, a.spot-stat:hover,
-      a.spot-play, a.spot-play:link, a.spot-play:visited, a.spot-play:hover {{
+      .spot-stat, a.spot-stat, a.spot-stat:link, a.spot-stat:visited, a.spot-stat:hover {{
         color:#fff !important; text-decoration:none !important; }}
-      a.spot-play {{ cursor:pointer; }}
 
       /* "At a glance" meter cards (replace the gauges) */
       .meter-card {{ background:{PAPER}; border:3px solid {INK}; box-shadow:6px 6px 0 {INK};
@@ -586,14 +522,9 @@ def city_spotlight() -> None:
         f'<a class="spot-stat" style="text-decoration:none" href="{gov}" '
         f'target="_blank" rel="noopener">CITY HALL &#8599;</a>'
     ) if gov else ""
-    video_url = city_video_url(city) or (
-        "https://www.youtube.com/results?search_query="
-        + urllib.parse.quote_plus(f"{city} turismo oficial vídeo"))
     st.markdown(
         f"""
         <div class="spotlight" style="background-image:{bg};">
-          <a class="spot-play" href="{video_url}" target="_blank" rel="noopener"
-             title="Watch {city} tourism video">&#9654;</a>
           <div class="spot-inner">
             <div class="spot-kicker">City spotlight &middot; {idx + 1}/{n} &middot; from your selection</div>
             <div class="spot-city">{city}</div>
@@ -603,8 +534,6 @@ def city_spotlight() -> None:
               <span class="spot-stat">COMFORT {comfort}</span>
               <span class="spot-stat">AQI {aqi}</span>
               {gov_chip}
-              <a class="spot-stat" style="text-decoration:none" href="{video_url}"
-                 target="_blank" rel="noopener">&#9654; VIDEO</a>
             </div>
           </div>
         </div>
@@ -627,16 +556,6 @@ if thumb_cities:
                 unsafe_allow_html=True,
             )
             st.caption(c)
-
-# Official tourism video — shown directly on the page (city video for the 5 majors,
-# else the city's autonomous-community tourism-board video; 56/58 cities covered)
-video_cities = [c for c in selected_cities if city_video_url(c)]
-if video_cities:
-    section("Watch", "Official tourism video")
-    vpick = st.selectbox("Pick a city", video_cities, key="tourism_video_pick")
-    st.video(city_video_url(vpick))
-    cap = "city tourism board" if vpick in CITY_VIDEO else f"{CITY_REGION.get(vpick, '')} regional tourism board"
-    st.caption(f"Official {cap} video. (Ceuta & Melilla link out via the ▶ on the spotlight card.)")
 
 st.markdown("")
 

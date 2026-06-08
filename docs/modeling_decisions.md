@@ -58,6 +58,7 @@ fast read instead of repeated joins/aggregations at render time.
 
 `int_forecast_vs_actual` aligns forecast snapshots to actuals on `(location_id, date)` and
 computes signed and absolute errors; `fct_forecast_city_day` exposes it at the mart layer.
-In a single extraction the forecast window (future dates) and the actuals window (past days)
-do not overlap, so the fact is empty until forecast snapshots are accumulated over time and
-their dates become observed actuals. The models are built and tested for that workflow.
+In a single extraction the comparison covers only the date(s) where the forecast horizon and
+the past-days actuals window overlap (currently one day per city). Running the extractor on a
+schedule accumulates forecast snapshots and grows this fact into a fuller forecast-accuracy
+history. The models are built and tested for that workflow.

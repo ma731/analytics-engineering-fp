@@ -182,14 +182,17 @@ The repo is deploy-ready: `requirements.txt` lists the runtime deps and a prebui
 `data/weather_analytics.duckdb` is committed, so the app runs on Cloud with no build step.
 Every push to the deployed branch auto-redeploys.
 
-## Known limitation — forecast vs actual
+## Note — forecast vs actual coverage
 
-`fct_forecast_city_day` and `int_forecast_vs_actual` are implemented and tested, but the
-fact is **empty in a single extraction snapshot**: the Forecast API returns *future* dates
-while the weather (actuals) covers *past* days, so the two windows don't overlap. A real
-forecast-vs-actual comparison requires accumulating forecast snapshots over time and
-joining them to actuals as those dates arrive. The models are ready for that; the data
-for it is collected by re-running extraction on a schedule.
+`fct_forecast_city_day` aligns forecast snapshots with actuals on `(city, date)`. In a single
+extraction the comparison only covers the **overlap day(s)** — the dates that appear in both
+the forecast horizon and the past-days actuals window (currently one day per city). Running the
+extractor on a schedule accumulates forecast snapshots and grows this fact over time, which is
+how a richer forecast-accuracy view is built.
+
+Air-quality history from the Open-Meteo Air Quality API is a shorter window than the daily
+weather (a few days of hourly readings vs ~30 days of weather), so `fct_air_quality_city_day`
+covers fewer days than `fct_city_weather_day`.
 
 ## Tech stack
 

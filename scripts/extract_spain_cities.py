@@ -59,9 +59,12 @@ def daily_rows(payload, loc, src, ts, datekey="date"):
 
 def write_csv(path, rows):
     if not rows:
-        path.write_text("", encoding="utf-8"); return
+        path.write_text("", encoding="utf-8")
+        return
     with path.open("w", newline="", encoding="utf-8") as f:
-        w = csv.DictWriter(f, fieldnames=list(rows[0].keys())); w.writeheader(); w.writerows(rows)
+        writer = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
+        writer.writeheader()
+        writer.writerows(rows)
 
 
 def main():

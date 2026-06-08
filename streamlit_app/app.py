@@ -141,6 +141,55 @@ CITY_VIDEO = {
     "Sevilla": "https://www.youtube.com/watch?v=LnV7IkZU-OY",
     "Bilbao": "https://www.youtube.com/watch?v=rHbmRaaHdU4",
 }
+# Official regional tourism-board videos (autonomous communities). Every city
+# falls back to its region's video, so all but the 2 autonomous cities are covered.
+# All verified embeddable + official channel via YouTube oEmbed.
+REGION_VIDEO = {
+    "Andalucía": "https://www.youtube.com/watch?v=T083IwT5nW4",
+    "Aragón": "https://www.youtube.com/watch?v=aDjzfvx31TY",
+    "Asturias": "https://www.youtube.com/watch?v=bcu2zcBdkCk",
+    "Illes Balears": "https://www.youtube.com/watch?v=A_hiZC7NECY",
+    "Canarias": "https://www.youtube.com/watch?v=0F8kXqa9P6E",
+    "Cantabria": "https://www.youtube.com/watch?v=eSn9dvTpZiU",
+    "Castilla-La Mancha": "https://www.youtube.com/watch?v=bwwVHd-FJPg",
+    "Castilla y León": "https://www.youtube.com/watch?v=s-p9HhJS80k",
+    "Cataluña": "https://www.youtube.com/watch?v=AIeFZpiP4ow",
+    "Comunitat Valenciana": "https://www.youtube.com/watch?v=jDk_Fpp_dCo",
+    "Extremadura": "https://www.youtube.com/watch?v=HYDBX5DTE_w",
+    "Galicia": "https://www.youtube.com/watch?v=p0BTRJVx7es",
+    "La Rioja": "https://www.youtube.com/watch?v=1hHkE2KBrWc",
+    "Comunidad de Madrid": "https://www.youtube.com/watch?v=inOGghSYOGI",
+    "Región de Murcia": "https://www.youtube.com/watch?v=zvjfH7tYveA",
+    "Navarra": "https://www.youtube.com/watch?v=H4u2KsBZB9U",
+    "País Vasco": "https://www.youtube.com/watch?v=HY1nRGr_9aU",
+}
+_REGION_CITIES = {
+    "Andalucía": ["Almería", "Cádiz", "Córdoba", "Granada", "Huelva", "Jaén",
+                  "Málaga", "Sevilla", "Marbella", "Jerez de la Frontera"],
+    "Aragón": ["Huesca", "Teruel", "Zaragoza"],
+    "Asturias": ["Oviedo", "Gijón"],
+    "Illes Balears": ["Palma", "Ibiza"],
+    "Canarias": ["Las Palmas de Gran Canaria", "Santa Cruz de Tenerife"],
+    "Cantabria": ["Santander"],
+    "Castilla-La Mancha": ["Albacete", "Ciudad Real", "Cuenca", "Guadalajara", "Toledo"],
+    "Castilla y León": ["Ávila", "Burgos", "León", "Palencia", "Salamanca",
+                        "Segovia", "Soria", "Valladolid", "Zamora"],
+    "Cataluña": ["Barcelona", "Girona", "Lleida", "Tarragona"],
+    "Comunitat Valenciana": ["Alicante", "Castellón de la Plana", "Valencia"],
+    "Extremadura": ["Badajoz", "Cáceres"],
+    "Galicia": ["A Coruña", "Lugo", "Ourense", "Pontevedra", "Vigo"],
+    "La Rioja": ["Logroño"],
+    "Comunidad de Madrid": ["Madrid"],
+    "Región de Murcia": ["Murcia", "Cartagena"],
+    "Navarra": ["Pamplona"],
+    "País Vasco": ["Bilbao", "Donostia-San Sebastián", "Vitoria-Gasteiz"],
+}
+CITY_REGION = {c: r for r, cities in _REGION_CITIES.items() for c in cities}
+
+
+def city_video_url(city: str):
+    """Official video for a city: its own (5 majors), else its region's, else None."""
+    return CITY_VIDEO.get(city) or REGION_VIDEO.get(CITY_REGION.get(city, ""))
 COMFORT_SCALE = [DANGER, TERRACOTTA, OCHRE, GREEN]   # low -> high (good)
 AQI_SCALE = [GREEN, OCHRE, TERRACOTTA, DANGER]       # low (good) -> high (bad)
 HEAT_SCALE = ["#1E3A8A", COBALT, GREEN, OCHRE, TERRACOTTA]  # cold -> hot
@@ -537,7 +586,7 @@ def city_spotlight() -> None:
         f'<a class="spot-stat" style="text-decoration:none" href="{gov}" '
         f'target="_blank" rel="noopener">CITY HALL &#8599;</a>'
     ) if gov else ""
-    video_url = CITY_VIDEO.get(city) or (
+    video_url = city_video_url(city) or (
         "https://www.youtube.com/results?search_query="
         + urllib.parse.quote_plus(f"{city} turismo oficial vídeo"))
     st.markdown(
@@ -579,13 +628,15 @@ if thumb_cities:
             )
             st.caption(c)
 
-# Official tourism video — shown directly on the page (the 5 major cities)
-video_cities = [c for c in selected_cities if c in CITY_VIDEO]
+# Official tourism video — shown directly on the page (city video for the 5 majors,
+# else the city's autonomous-community tourism-board video; 56/58 cities covered)
+video_cities = [c for c in selected_cities if city_video_url(c)]
 if video_cities:
     section("Watch", "Official tourism video")
     vpick = st.selectbox("Pick a city", video_cities, key="tourism_video_pick")
-    st.video(CITY_VIDEO[vpick])
-    st.caption("Official tourism-board video. Cities without one link out via the ▶ on the spotlight card.")
+    st.video(city_video_url(vpick))
+    cap = "city tourism board" if vpick in CITY_VIDEO else f"{CITY_REGION.get(vpick, '')} regional tourism board"
+    st.caption(f"Official {cap} video. (Ceuta & Melilla link out via the ▶ on the spotlight card.)")
 
 st.markdown("")
 

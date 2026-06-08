@@ -1,0 +1,27 @@
+version: 2
+
+seeds:
+  - name: aqi_health_bands
+    description: >
+      European Air Quality Index health bands (EEA scale). Range-joined into
+      fct_air_quality_city_day to classify each city-day's average AQI into a
+      health category.
+    columns:
+      - name: band_order
+        description: "Ordinal severity, 1 (best) to 6 (worst)."
+        tests:
+          - unique
+          - not_null
+      - name: aqi_band
+        description: "Health band label."
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["Good", "Fair", "Moderate", "Poor", "Very Poor", "Extremely Poor"]
+      - name: aqi_min
+        description: "Lower bound of the band, inclusive."
+      - name: aqi_max
+        description: "Upper bound of the band, exclusive."
+      - name: health_note
+        description: "Short health guidance for the band."

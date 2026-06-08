@@ -17,8 +17,11 @@ Run from the project root:
 from __future__ import annotations
 
 import base64
+import re
+import unicodedata
 from datetime import datetime, timezone
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import duckdb
 import pandas as pd
@@ -46,15 +49,18 @@ MUTED = "#6B7280"
 
 CITY_COLORS = [TERRACOTTA, COBALT, OCHRE, GREEN, VIOLET]
 
-# City spotlight photos (committed under streamlit_app/assets/cities)
+# City spotlight photos (committed under streamlit_app/assets/cities, one per city)
 ASSETS = Path(__file__).resolve().parent / "assets" / "cities"
-CITY_PHOTOS = {
-    "Madrid": ASSETS / "madrid.jpg",
-    "Barcelona": ASSETS / "barcelona.jpg",
-    "Valencia": ASSETS / "valencia.jpg",
-    "Sevilla": ASSETS / "sevilla.jpg",
-    "Bilbao": ASSETS / "bilbao.jpg",
-}
+
+
+def city_slug(name: str) -> str:
+    """Accent-stripped lowercase alphanumeric slug, matching the photo filenames."""
+    n = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode()
+    return re.sub(r"[^a-z0-9]", "", n.lower())
+
+
+def city_photo(name: str) -> Path:
+    return ASSETS / f"{city_slug(name)}.jpg"
 CITY_BLURBS = {
     "Madrid": "Gran Vía at golden hour — the capital's restless heart.",
     "Barcelona": "Gaudí's Sagrada Família against the Mediterranean sky.",
@@ -62,6 +68,69 @@ CITY_BLURBS = {
     "Sevilla": "Plaza de España — Andalusian sun and tilework.",
     "Bilbao": "The Guggenheim's titanium curves on the Nervión.",
 }
+# Official municipal (city hall) websites — shown as a link on each spotlight card.
+# All 58 verified reachable (region TLDs: .es default, .cat Catalonia, .gal Galicia, .eus Euskadi).
+CITY_GOV = {
+    "Madrid": "https://www.madrid.es",
+    "Barcelona": "https://www.barcelona.cat",
+    "Valencia": "https://www.valencia.es",
+    "Sevilla": "https://www.sevilla.org",
+    "Bilbao": "https://www.bilbao.eus",
+    "Zaragoza": "https://www.zaragoza.es",
+    "Málaga": "https://www.malaga.eu",
+    "Murcia": "https://www.murcia.es",
+    "Palma": "https://www.palma.cat",
+    "Las Palmas de Gran Canaria": "https://www.laspalmasgc.es",
+    "Alicante": "https://www.alicante.es",
+    "Córdoba": "https://www.cordoba.es",
+    "Valladolid": "https://www.valladolid.es",
+    "Vigo": "https://www.vigo.org",
+    "Gijón": "https://www.gijon.es",
+    "A Coruña": "https://www.coruna.gal",
+    "Granada": "https://www.granada.org",
+    "Vitoria-Gasteiz": "https://www.vitoria-gasteiz.org",
+    "Santa Cruz de Tenerife": "https://www.santacruzdetenerife.es",
+    "Oviedo": "https://www.oviedo.es",
+    "Pamplona": "https://www.pamplona.es",
+    "Santander": "https://www.santander.es",
+    "Cartagena": "https://www.cartagena.es",
+    "Jerez de la Frontera": "https://www.jerez.es",
+    "Almería": "https://www.almeria.es",
+    "Donostia-San Sebastián": "https://www.donostia.eus",
+    "Burgos": "https://www.aytoburgos.es",
+    "Albacete": "https://www.albacete.es",
+    "Castellón de la Plana": "https://www.castello.es",
+    "Logroño": "https://www.logrono.es",
+    "Badajoz": "https://www.aytobadajoz.es",
+    "Salamanca": "https://www.aytosalamanca.es",
+    "Huelva": "https://www.huelva.es",
+    "Marbella": "https://www.marbella.es",
+    "Lleida": "https://www.paeria.cat",
+    "Tarragona": "https://www.tarragona.cat",
+    "León": "https://www.aytoleon.es",
+    "Cádiz": "https://institucional.cadiz.es",
+    "Jaén": "https://www.aytojaen.es",
+    "Ourense": "https://www.ourense.gal",
+    "Girona": "https://www.girona.cat",
+    "Lugo": "https://www.lugo.gal",
+    "Cáceres": "https://www.ayto-caceres.es",
+    "Toledo": "https://www.toledo.es",
+    "Pontevedra": "https://www.pontevedra.gal",
+    "Guadalajara": "https://www.guadalajara.es",
+    "Ciudad Real": "https://www.ciudadreal.es",
+    "Zamora": "https://www.zamora.es",
+    "Palencia": "https://www.aytopalencia.es",
+    "Ávila": "https://www.avila.es",
+    "Cuenca": "https://www.cuenca.es",
+    "Segovia": "https://www.segovia.es",
+    "Soria": "https://www.soria.es",
+    "Huesca": "https://www.huesca.es",
+    "Teruel": "https://www.teruel.es",
+    "Ceuta": "https://www.ceuta.es",
+    "Melilla": "https://www.melilla.es",
+    "Ibiza": "https://www.eivissa.es",
+}
+
 COMFORT_SCALE = [DANGER, TERRACOTTA, OCHRE, GREEN]   # low -> high (good)
 AQI_SCALE = [GREEN, OCHRE, TERRACOTTA, DANGER]       # low (good) -> high (bad)
 HEAT_SCALE = ["#1E3A8A", COBALT, GREEN, OCHRE, TERRACOTTA]  # cold -> hot
@@ -83,9 +152,9 @@ st.markdown(
       @import url('https://fonts.googleapis.com/css2?family=Darker+Grotesque:wght@600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
 
       html, body, [class*="css"] {{ font-family: 'JetBrains Mono', monospace; color: {INK}; }}
+      /* Single cohesive cream canvas with one faint warm accent */
       .stApp {{ background:
-          radial-gradient(1100px 420px at 86% -8%, rgba(221,97,76,.10), transparent 60%),
-          radial-gradient(900px 420px at 0% 0%, rgba(218,161,68,.10), transparent 55%),
+          radial-gradient(1000px 400px at 90% -8%, rgba(221,97,76,.07), transparent 60%),
           {CREAM}; }}
       /* Website feel: hide Streamlit chrome */
       #MainMenu, footer {{ visibility: hidden; }}
@@ -117,6 +186,10 @@ st.markdown(
         border: 4px solid {INK}; box-shadow: 10px 10px 0 {INK}; margin-bottom: 1.7rem;
       }}
       .hero h1 {{ margin: 0; font-size: clamp(2rem, 4.4vw, 2.9rem); line-height: .92; color: #fff !important; }}
+      .hero h1 .lt {{ color: #FFFFFF !important; }}
+      .hero h1 .dk {{ color: {INK} !important; }}
+      .wm-dk {{ color: {INK}; }}
+      .wm-ac {{ color: {TERRACOTTA}; }}
       .hero p {{ margin: .5rem 0 0; font-family: 'JetBrains Mono', monospace;
         font-size: clamp(.72rem, 1vw, .82rem); font-weight: 600; max-width: 720px; }}
 
@@ -124,7 +197,7 @@ st.markdown(
       .chips {{ display: flex; gap: .5rem; flex-wrap: wrap; }}
       .chip {{ display:inline-flex; align-items:center; gap:.45rem; white-space:nowrap;
         background:{PAPER}; border:2px solid {INK}; padding:.3rem .6rem;
-        font-size:.7rem; font-weight:700; letter-spacing:.05em; }}
+        font-size:.75rem; font-weight:700; letter-spacing:.05em; }}
       .chip.muted {{ color:{MUTED}; }}
       .dot {{ width:9px; height:9px; border-radius:50%; background:{TERRACOTTA};
         box-shadow:0 0 0 0 rgba(221,97,76,.7); animation:pulse 1.6s infinite; }}
@@ -135,7 +208,7 @@ st.markdown(
       }}
 
       /* Section eyebrow + header */
-      .eyebrow {{ font-family:'JetBrains Mono',monospace; font-size:.7rem; font-weight:700;
+      .eyebrow {{ font-family:'JetBrains Mono',monospace; font-size:.75rem; font-weight:700;
         letter-spacing:.18em; color:{TERRACOTTA}; text-transform:uppercase; margin-top:.6rem; }}
       h2, h3 {{ border-bottom: 3px solid {INK}; padding-bottom: .15rem; }}
 
@@ -147,7 +220,7 @@ st.markdown(
       div[data-testid="stMetricLabel"] {{ overflow: visible !important; max-width: 100% !important; }}
       div[data-testid="stMetricLabel"] * {{ overflow: visible !important; text-overflow: clip !important; }}
       div[data-testid="stMetricLabel"] p {{ font-weight:700; text-transform:uppercase;
-        font-size:.7rem; letter-spacing:.03em; color:{INK}; white-space:normal; line-height:1.2; }}
+        font-size:.75rem; letter-spacing:.03em; color:{INK}; white-space:normal; line-height:1.2; }}
       div[data-testid="stMetricValue"] {{ font-family:'Darker Grotesque',sans-serif; font-weight:900; }}
 
       /* Framed charts + table */
@@ -166,19 +239,31 @@ st.markdown(
         display:flex; align-items:flex-end; overflow:hidden; margin-bottom:.9rem; }}
       .spot-inner {{ width:100%; padding:1.4rem 1.7rem;
         background:linear-gradient(to top, rgba(0,0,0,.80), rgba(0,0,0,.20) 55%, transparent); }}
-      .spot-kicker {{ color:#fff; font-family:'JetBrains Mono',monospace; font-size:.72rem;
+      .spot-kicker {{ color:#fff; font-family:'JetBrains Mono',monospace; font-size:.75rem;
         font-weight:700; letter-spacing:.16em; text-transform:uppercase; opacity:.92; }}
       .spot-city {{ color:#fff !important; font-family:'Darker Grotesque',sans-serif; font-weight:900;
         font-size:clamp(2.4rem,5vw,3.6rem); line-height:.9; margin:.1rem 0 .25rem; text-transform:uppercase; }}
       .spot-blurb {{ color:#f1f1f1; font-family:'JetBrains Mono',monospace; font-size:.8rem;
         margin:0 0 .75rem; max-width:640px; }}
-      .spot-play {{ position:absolute; top:1.1rem; right:1.2rem; width:46px; height:46px;
-        border:2px solid #fff; color:#fff; display:flex; align-items:center; justify-content:center;
-        font-size:1.05rem; background:rgba(0,0,0,.28); }}
       .spot-stats {{ display:flex; gap:.5rem; flex-wrap:wrap; }}
       .spot-stat {{ background:rgba(255,255,255,.14); border:2px solid rgba(255,255,255,.6);
-        color:#fff; padding:.3rem .6rem; font-size:.74rem; font-weight:700; }}
+        color:#fff; padding:.3rem .6rem; font-size:.75rem; font-weight:700; }}
       .thumb {{ width:100%; height:78px; object-fit:cover; border:2px solid {INK}; display:block; }}
+      /* Spotlight chips + the City Hall link share one colour (white), never browser-blue */
+      .spot-stat, a.spot-stat, a.spot-stat:link, a.spot-stat:visited, a.spot-stat:hover {{
+        color:#fff !important; text-decoration:none !important; }}
+
+      /* "At a glance" meter cards (replace the gauges) */
+      .meter-card {{ background:{PAPER}; border:3px solid {INK}; box-shadow:6px 6px 0 {INK};
+        padding:1rem 1.1rem 1.05rem; }}
+      .meter-label {{ font-family:'JetBrains Mono',monospace; font-weight:700; text-transform:uppercase;
+        font-size:.75rem; letter-spacing:.04em; color:{INK}; }}
+      .meter-value {{ font-family:'Darker Grotesque',sans-serif; font-weight:900; font-size:2.7rem;
+        line-height:1; margin:.15rem 0 .6rem; color:{INK}; }}
+      .meter-track {{ height:14px; background:#EDEBE3; border:2px solid {INK}; }}
+      .meter-fill {{ height:100%; }}
+      .meter-scale {{ display:flex; justify-content:space-between; font-family:'JetBrains Mono',monospace;
+        font-size:.75rem; color:{MUTED}; margin-top:.35rem; }}
       * {{ border-radius:0 !important; }}
     </style>
     """,
@@ -261,45 +346,36 @@ def load_daily_aqi() -> pd.DataFrame:
     ).df()
 
 
+@st.cache_data(ttl=600)
+def load_season_summary() -> pd.DataFrame:
+    return get_connection().sql(
+        "select city_name, season, total_days, avg_temperature_c, "
+        "avg_max_temperature_c, avg_min_temperature_c, total_precipitation_mm, "
+        "comfortable_days, rainy_days, hot_days, freezing_days, comfort_score "
+        "from main.mart_city_season_summary"
+    ).df()
+
+
+@st.cache_data(ttl=600)
+def load_extreme_events() -> pd.DataFrame:
+    return get_connection().sql("select * from main.mart_extreme_events").df()
+
+
 # --------------------------------------------------------------------------- #
 # Load
 # --------------------------------------------------------------------------- #
 summary = load_summary()
 weather = load_daily_weather()
 aqi = load_daily_aqi()
+season_summary = load_season_summary()
+extreme_events = load_extreme_events()
 weather["weather_date"] = pd.to_datetime(weather["weather_date"])
 aqi["air_quality_date"] = pd.to_datetime(aqi["air_quality_date"])
 
 # --------------------------------------------------------------------------- #
-# Sidebar filters
+# Sidebar (reference only — the city picker lives up top in the main area)
 # --------------------------------------------------------------------------- #
-st.sidebar.header("Filters")
-all_cities = sorted(summary["city_name"].tolist())
-MAJOR_CITIES = ["Madrid", "Barcelona", "Valencia", "Sevilla", "Bilbao"]
-default_cities = [c for c in MAJOR_CITIES if c in all_cities] or all_cities
-
-show_all = st.sidebar.checkbox(f"Show all {len(all_cities)} cities", value=False)
-if show_all:
-    selected_cities = all_cities
-else:
-    selected_cities = st.sidebar.multiselect(
-        "Cities", options=all_cities, default=default_cities,
-        help=f"Type to add any of the {len(all_cities)} Spanish cities.",
-    )
-st.sidebar.caption(f"{len(all_cities)} available · {len(selected_cities)} selected")
-if not selected_cities:
-    st.warning("Select at least one city to see the dashboard.")
-    st.stop()
-
-min_date = weather["weather_date"].min().date()
-max_date = weather["weather_date"].max().date()
-date_range = st.sidebar.slider(
-    "Date range", min_value=min_date, max_value=max_date,
-    value=(min_date, max_date), format="DD MMM",
-)
-start_date, end_date = pd.Timestamp(date_range[0]), pd.Timestamp(date_range[1])
-
-st.sidebar.markdown("---")
+st.sidebar.header("About")
 st.sidebar.markdown(
     """
     <div class="footnote">
@@ -307,7 +383,7 @@ st.sidebar.markdown(
     <code>mart_city_weather_summary</code>: one row per city.<br/>
     <code>fct_*_day</code>: one row per city per day.<br/><br/>
     <b>REPRODUCE</b><br/>
-    1. <code>python scripts/extract_open_meteo.py</code><br/>
+    1. <code>python scripts/extract_spain_cities.py</code><br/>
     2. <code>python scripts/load_to_duckdb.py</code><br/>
     3. <code>dbt build</code><br/>
     4. <code>streamlit run streamlit_app/app.py</code>
@@ -315,6 +391,57 @@ st.sidebar.markdown(
     """,
     unsafe_allow_html=True,
 )
+
+# --------------------------------------------------------------------------- #
+# Top bar + hero
+# --------------------------------------------------------------------------- #
+st.markdown(
+    '<div class="topbar"><div class="wordmark"><span class="sq"></span>CITY COMFORT INDEX</div>'
+    '<div class="chip muted">OPEN-METEO · DBT · DUCKDB</div></div>',
+    unsafe_allow_html=True,
+)
+st.markdown(
+    """
+    <div class="hero">
+      <h1>City Comfort Index</h1>
+      <p>HOW PLEASANT IS THE WEATHER ACROSS SPAIN'S LARGEST CITIES? A LIVE COMFORT,
+      CLIMATE AND AIR-QUALITY VIEW BUILT ON OPEN-METEO DATA — STRAIGHT FROM THE DBT MARTS.</p>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+# --------------------------------------------------------------------------- #
+# Controls — prominent city picker + date range at the top of the page
+# --------------------------------------------------------------------------- #
+all_cities = sorted(summary["city_name"].tolist())
+MAJOR_CITIES = ["Madrid", "Barcelona", "Valencia", "Sevilla", "Bilbao"]
+default_cities = [c for c in MAJOR_CITIES if c in all_cities] or all_cities
+
+section("Controls", "Choose cities to display")
+ctrl_l, ctrl_r = st.columns([2.1, 1])
+with ctrl_l:
+    show_all = st.checkbox(f"Show all {len(all_cities)} cities", value=False)
+    if show_all:
+        selected_cities = all_cities
+    else:
+        selected_cities = st.multiselect(
+            "Cities on the dashboard",
+            options=all_cities, default=default_cities,
+            help=f"Type a name to add any of the {len(all_cities)} Spanish cities.",
+        )
+with ctrl_r:
+    min_date = weather["weather_date"].min().date()
+    max_date = weather["weather_date"].max().date()
+    date_range = st.slider(
+        "Date range", min_value=min_date, max_value=max_date,
+        value=(min_date, max_date), format="DD MMM YYYY",
+    )
+st.caption(f"{len(all_cities)} cities available · {len(selected_cities)} selected")
+if not selected_cities:
+    st.warning("Pick at least one city above to see the dashboard.")
+    st.stop()
+start_date, end_date = pd.Timestamp(date_range[0]), pd.Timestamp(date_range[1])
 
 # --------------------------------------------------------------------------- #
 # Apply filters
@@ -354,34 +481,25 @@ ranking["overall_comfort_index"] = (
 ranking = ranking.sort_values("overall_comfort_index", ascending=False)
 best_city = ranking.iloc[0]
 
-# --------------------------------------------------------------------------- #
-# Top bar + hero
-# --------------------------------------------------------------------------- #
-st.markdown(
-    '<div class="topbar"><div class="wordmark"><span class="sq"></span>CITY COMFORT INDEX</div>'
-    '<div class="chip muted">OPEN-METEO · DBT · DUCKDB</div></div>',
-    unsafe_allow_html=True,
-)
-st.markdown(
-    """
-    <div class="hero">
-      <h1>City Comfort Index</h1>
-      <p>HOW PLEASANT IS THE WEATHER ACROSS SPAIN'S LARGEST CITIES? A LIVE COMFORT,
-      CLIMATE AND AIR-QUALITY VIEW BUILT ON OPEN-METEO DATA — STRAIGHT FROM THE DBT MARTS.</p>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
+def _zone_now(tz: str) -> str:
+    """Current HH:MM:SS in an IANA timezone; falls back to UTC if tzdata is missing."""
+    try:
+        return datetime.now(ZoneInfo(tz)).strftime("%H:%M:%S")
+    except Exception:
+        return datetime.now(timezone.utc).strftime("%H:%M:%S") + " UTC"
 
 
-@st.fragment(run_every="2s")
+@st.fragment(run_every="1s")
 def live_status() -> None:
-    now = datetime.now(timezone.utc).strftime("%H:%M:%S UTC")
-    span = f"{start_date:%d %b} – {end_date:%d %b}"
+    spain = _zone_now("Europe/Madrid")       # mainland Spain (CET/CEST)
+    canary = _zone_now("Atlantic/Canary")    # Canary Islands (1h behind)
+    span = f"{start_date:%d %b %Y} – {end_date:%d %b %Y}"
     st.markdown(
         f"""
-        <div class="chips" style="margin:-0.6rem 0 1.2rem">
-          <span class="chip"><span class="dot"></span>LIVE · {now}</span>
+        <div class="chips" style="margin:.2rem 0 1.2rem">
+          <span class="chip"><span class="dot"></span>LIVE</span>
+          <span class="chip muted">🇪🇸 SPAIN {spain}</span>
+          <span class="chip muted">🏝️ CANARY {canary}</span>
           <span class="chip muted">MONITORING {len(selected_cities)} CITIES</span>
           <span class="chip muted">WINDOW {span}</span>
           <span class="chip muted">{len(w):,} CITY-DAYS</span>
@@ -397,34 +515,42 @@ live_status()
 # City spotlight — auto-rotating cinematic carousel with real city photos
 # --------------------------------------------------------------------------- #
 section("City spotlight", "Postcards from the data")
-photo_cities = [c for c in CITY_PHOTOS if c in selected_cities] or list(CITY_PHOTOS)
+# The carousel rotates through the cities you select: a photo for the majors,
+# a branded card otherwise. Each card links to the city's town hall when known.
+spotlight_cities = selected_cities
 
 
 @st.fragment(run_every="4s")
 def city_spotlight() -> None:
-    n = len(photo_cities)
+    n = len(spotlight_cities)
     idx = st.session_state.get("spot_idx", 0) % n
     st.session_state["spot_idx"] = idx + 1
-    city = photo_cities[idx]
-    b64 = img_b64(CITY_PHOTOS[city])
-    bg = f"url(data:image/jpeg;base64,{b64})" if b64 else "linear-gradient(120deg,#DD614C,#C2410C)"
+    city = spotlight_cities[idx]
+    b64 = img_b64(city_photo(city))
+    bg = f"url(data:image/jpeg;base64,{b64})" if b64 else "linear-gradient(125deg,#DD614C,#7C2D12)"
     row = summary[summary["city_name"] == city]
     temp = f"{row['avg_temperature_c'].iloc[0]:.1f} °C" if not row.empty else "—"
     comfort = f"{row['overall_comfort_index'].iloc[0]:.0f}" if not row.empty else "—"
     aqi_val = row["avg_air_quality_index"].iloc[0] if not row.empty else None
     aqi = f"{aqi_val:.0f}" if aqi_val is not None and pd.notna(aqi_val) else "—"
+    blurb = CITY_BLURBS.get(city, "One of Spain's 58 monitored cities.")
+    gov = CITY_GOV.get(city)
+    gov_chip = (
+        f'<a class="spot-stat" style="text-decoration:none" href="{gov}" '
+        f'target="_blank" rel="noopener">CITY HALL &#8599;</a>'
+    ) if gov else ""
     st.markdown(
         f"""
         <div class="spotlight" style="background-image:{bg};">
-          <div class="spot-play">&#9654;</div>
           <div class="spot-inner">
-            <div class="spot-kicker">City spotlight &middot; {idx + 1}/{n}</div>
+            <div class="spot-kicker">City spotlight &middot; {idx + 1}/{n} &middot; from your selection</div>
             <div class="spot-city">{city}</div>
-            <div class="spot-blurb">{CITY_BLURBS.get(city, "")}</div>
+            <div class="spot-blurb">{blurb}</div>
             <div class="spot-stats">
               <span class="spot-stat">{temp}</span>
               <span class="spot-stat">COMFORT {comfort}</span>
               <span class="spot-stat">AQI {aqi}</span>
+              {gov_chip}
             </div>
           </div>
         </div>
@@ -435,17 +561,18 @@ def city_spotlight() -> None:
 
 city_spotlight()
 
-# Thumbnail strip of all spotlight cities
-tcols = st.columns(len(photo_cities))
-for col, c in zip(tcols, photo_cities):
-    b = img_b64(CITY_PHOTOS[c])
-    with col:
-        if b:
+# Thumbnail strip — photo cities within the current selection (cap to keep it tidy)
+thumb_cities = [c for c in selected_cities if city_photo(c).exists()][:8]
+if thumb_cities:
+    tcols = st.columns(len(thumb_cities))
+    for col, c in zip(tcols, thumb_cities):
+        b = img_b64(city_photo(c))
+        with col:
             st.markdown(
                 f'<img class="thumb" src="data:image/jpeg;base64,{b}" alt="{c}" />',
                 unsafe_allow_html=True,
             )
-        st.caption(c)
+            st.caption(c)
 
 st.markdown("")
 
@@ -453,11 +580,11 @@ st.markdown("")
 # KPI cards
 # --------------------------------------------------------------------------- #
 k1, k2, k3, k4 = st.columns(4)
-k1.metric("Cities in view", len(selected_cities))
-k2.metric("Avg temperature", f"{w['temperature_2m_mean'].mean():.1f} °C")
+k1.metric("Cities", len(selected_cities))
+k2.metric("Avg temp", f"{w['temperature_2m_mean'].mean():.1f} °C")
 k3.metric("Comfy days", int(ranking["comfortable_days"].sum()),
           help="Comfortable days: mean temp 18–26 °C and not rainy, windy, hot or freezing.")
-k4.metric("Most comfortable", best_city["city_name"],
+k4.metric("Top city", best_city["city_name"],
           f"index {best_city['overall_comfort_index']:.1f}")
 
 st.markdown("")
@@ -466,43 +593,27 @@ st.markdown("")
 # --------------------------------------------------------------------------- #
 # Gauges
 # --------------------------------------------------------------------------- #
-def gauge(value, title, vmin, vmax, steps, bar_color, suffix=""):
-    fig = go.Figure(go.Indicator(
-        mode="gauge+number",
-        value=round(float(value), 1),
-        number={"suffix": suffix, "font": {"family": "JetBrains Mono", "size": 28, "color": INK}},
-        title={"text": title, "font": {"family": "Darker Grotesque", "size": 20, "color": INK}},
-        gauge={
-            "axis": {"range": [vmin, vmax], "tickcolor": MUTED, "tickfont": {"size": 9}},
-            "bar": {"color": bar_color, "thickness": 0.3},
-            "bgcolor": "rgba(0,0,0,0)",
-            "bordercolor": INK, "borderwidth": 2,
-            "steps": steps,
-        },
-    ))
-    fig.update_layout(height=205, margin=dict(l=18, r=18, t=40, b=6),
-                      paper_bgcolor="rgba(0,0,0,0)", font=dict(color=INK))
-    return fig
+def meter_card(label, value, vmin, vmax, color, suffix=""):
+    """A brutalist meter: big value + a progress bar showing where it sits on its scale."""
+    pct = max(0.0, min(100.0, (float(value) - vmin) / (vmax - vmin) * 100))
+    return f"""
+    <div class="meter-card">
+      <div class="meter-label">{label}</div>
+      <div class="meter-value">{float(value):.1f}{suffix}</div>
+      <div class="meter-track"><div class="meter-fill" style="width:{pct:.0f}%;background:{color};"></div></div>
+      <div class="meter-scale"><span>{vmin:g}</span><span>{vmax:g}</span></div>
+    </div>
+    """
 
 
 section("Instruments", "At a glance")
+aqi_mean = a["avg_european_aqi"].mean() if not a.empty else 0.0
 g1, g2, g3 = st.columns(3)
-with g1:
-    st.plotly_chart(gauge(
-        ranking["overall_comfort_index"].mean(), "OVERALL COMFORT", -20, 40,
-        [{"range": [-20, 0], "color": "#fde8e4"}, {"range": [0, 20], "color": "#fbf3dd"},
-         {"range": [20, 40], "color": "#e3f5ea"}], TERRACOTTA), width="stretch")
-with g2:
-    st.plotly_chart(gauge(
-        w["temperature_2m_mean"].mean(), "AVG TEMPERATURE", 0, 40,
-        [{"range": [0, 18], "color": "#e6eefb"}, {"range": [18, 26], "color": "#e3f5ea"},
-         {"range": [26, 40], "color": "#fde8e4"}], COBALT, " °C"), width="stretch")
-with g3:
-    aqi_mean = a["avg_european_aqi"].mean() if not a.empty else 0
-    st.plotly_chart(gauge(
-        aqi_mean, "AIR QUALITY (AQI)", 0, 100,
-        [{"range": [0, 25], "color": "#e3f5ea"}, {"range": [25, 50], "color": "#fbf3dd"},
-         {"range": [50, 100], "color": "#fde8e4"}], GREEN), width="stretch")
+g1.markdown(meter_card("Overall comfort", ranking["overall_comfort_index"].mean(), -20, 100, TERRACOTTA),
+            unsafe_allow_html=True)
+g2.markdown(meter_card("Comfort score", ranking["comfort_score"].mean(), 0, 100, OCHRE),
+            unsafe_allow_html=True)
+g3.markdown(meter_card("Air quality · AQI", aqi_mean, 0, 100, GREEN), unsafe_allow_html=True)
 
 
 # --------------------------------------------------------------------------- #
@@ -536,14 +647,19 @@ with o_left:
     if rank_note:
         st.caption(rank_note)
 with o_right:
-    map_df = s.copy()
+    # Use the date-filtered ranking (not whole-window summary) so the map and the
+    # ranking bar always agree; pull coordinates/population from dim/summary.
+    map_df = ranking.merge(
+        s[["city_name", "latitude", "longitude", "population"]],
+        on="city_name", how="left",
+    )
     map_df["size"] = map_df["population"].clip(lower=1).pow(0.5)
     fig_map = px.scatter_mapbox(
         map_df, lat="latitude", lon="longitude", color="overall_comfort_index",
         size="size", hover_name="city_name", size_max=30, zoom=4.3,
         color_continuous_scale=COMFORT_SCALE,
         hover_data={"latitude": False, "longitude": False, "size": False,
-                    "overall_comfort_index": True, "avg_temperature_c": True},
+                    "overall_comfort_index": ":.1f", "avg_temp": ":.1f"},
     )
     fig_map.update_layout(mapbox_style="carto-positron", height=340,
                           margin=dict(l=0, r=0, t=30, b=0), paper_bgcolor="rgba(0,0,0,0)",
@@ -659,9 +775,206 @@ with d_right:
 
 
 # --------------------------------------------------------------------------- #
+# Seasons — four-season comfort comparison (full year, from mart_city_season_summary)
+# --------------------------------------------------------------------------- #
+SEASON_ORDER = ["Winter", "Spring", "Summer", "Autumn"]
+section("Seasons", "Four-season comfort")
+seas = season_summary[season_summary["city_name"].isin(selected_cities)].copy()
+seas["season"] = pd.Categorical(seas["season"], categories=SEASON_ORDER, ordered=True)
+seas = seas.sort_values("season")
+se_left, se_right = st.columns([1.3, 1])
+with se_left:
+    top_season_cities = ranking.head(8)["city_name"].tolist()
+    seas_top = seas[seas["city_name"].isin(top_season_cities)]
+    fig_se = px.bar(
+        seas_top, x="season", y="comfort_score", color="city_name", barmode="group",
+        color_discrete_sequence=CITY_COLORS,
+        labels={"season": "", "comfort_score": "Comfort score", "city_name": ""},
+    )
+    fig_se.update_layout(legend=dict(orientation="h", y=1.06, x=0))
+    st.plotly_chart(style_fig(fig_se, height=360, bars=True), width="stretch")
+with se_right:
+    seas_agg = (
+        seas.groupby("season", observed=True)
+        .agg(t=("avg_temperature_c", "mean"), cs=("comfort_score", "mean"))
+        .reindex(SEASON_ORDER)
+    )
+
+    def _season_color(t: float) -> str:
+        if pd.isna(t):
+            return MUTED
+        return ("#1E3A8A" if t < 6 else COBALT if t < 12 else GREEN
+                if t < 18 else OCHRE if t < 24 else TERRACOTTA)
+
+    cards = []
+    for name in SEASON_ORDER:
+        row = seas_agg.loc[name]
+        t = row["t"]
+        cs = row["cs"]
+        col = _season_color(t)
+        t_txt = "—" if pd.isna(t) else f"{t:.0f}°"
+        cs_txt = "—" if pd.isna(cs) else f"{cs:.0f}"
+        cards.append(
+            f'<div class="seascard" style="border-left:6px solid {col}">'
+            f'<div class="seasname">{name.upper()}</div>'
+            f'<div class="seastemp" style="color:{col}">{t_txt}</div>'
+            f'<div class="seasmeta">avg comfort {cs_txt}</div></div>'
+        )
+    st.markdown(
+        """<style>
+        .seasgrid{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;}
+        .seascard{background:#fff;border:2px solid #111827;padding:.7rem .8rem;}
+        .seasname{font-family:'JetBrains Mono',monospace;font-size:.68rem;letter-spacing:.1em;font-weight:700;color:#111827;}
+        .seastemp{font-family:'Darker Grotesque','JetBrains Mono',monospace;font-size:2rem;font-weight:800;line-height:1.1;}
+        .seasmeta{font-family:'JetBrains Mono',monospace;font-size:.66rem;color:#6B7280;}
+        </style>"""
+        + f'<div class="seasgrid">{"".join(cards)}</div>',
+        unsafe_allow_html=True,
+    )
+st.caption(
+    "Meteorological seasons (Winter = Dec–Feb …). Uses the full year of weather, "
+    "independent of the date filter above."
+)
+
+# --------------------------------------------------------------------------- #
+# Extremes — heatwaves, cold snaps, heavy rain (full year, from mart_extreme_events)
+# --------------------------------------------------------------------------- #
+section("Extremes", "Heat, cold & rain")
+ext = extreme_events[extreme_events["city_name"].isin(selected_cities)].copy()
+ex_left, ex_right = st.columns([1.3, 1])
+with ex_left:
+    ext_top = ext.sort_values("heatwave_days", ascending=False).head(10)
+    ext_melt = ext_top.melt(
+        id_vars="city_name",
+        value_vars=["heatwave_days", "cold_snap_days", "heavy_rain_days"],
+        var_name="kind", value_name="days",
+    )
+    ext_melt["kind"] = ext_melt["kind"].map({
+        "heatwave_days": "Heatwave", "cold_snap_days": "Cold snap", "heavy_rain_days": "Heavy rain",
+    })
+    fig_ex = px.bar(
+        ext_melt, x="city_name", y="days", color="kind", barmode="group",
+        color_discrete_map={"Heatwave": TERRACOTTA, "Cold snap": COBALT, "Heavy rain": GREEN},
+        labels={"city_name": "", "days": "Days", "kind": ""},
+    )
+    fig_ex.update_layout(legend=dict(orientation="h", y=1.06, x=0))
+    st.plotly_chart(style_fig(fig_ex, height=360, bars=True), width="stretch")
+with ex_right:
+    def _ext_card(title, row, value_col, streak_col, col, unit="days"):
+        return (
+            f'<div class="extcard" style="border-left:6px solid {col}">'
+            f'<div class="extkind">{title}</div>'
+            f'<div class="extcity">{row["city_name"]}</div>'
+            f'<div class="extbig" style="color:{col}">{int(row[value_col])} <span>{unit}</span></div>'
+            f'<div class="extmeta">longest streak {int(row[streak_col])} days</div></div>'
+        )
+
+    hottest = ext.sort_values("heatwave_days", ascending=False).iloc[0]
+    coldest = ext.sort_values("cold_snap_days", ascending=False).iloc[0]
+    wettest = ext.sort_values("heavy_rain_days", ascending=False).iloc[0]
+    st.markdown(
+        """<style>
+        .extcard{background:#fff;border:2px solid #111827;padding:.6rem .8rem;margin-bottom:.55rem;}
+        .extkind{font-family:'JetBrains Mono',monospace;font-size:.64rem;letter-spacing:.1em;font-weight:700;color:#6B7280;}
+        .extcity{font-family:'Darker Grotesque','JetBrains Mono',monospace;font-size:1.15rem;font-weight:800;color:#111827;}
+        .extbig{font-family:'Darker Grotesque','JetBrains Mono',monospace;font-size:1.7rem;font-weight:800;line-height:1.05;}
+        .extbig span{font-size:.7rem;font-weight:700;}
+        .extmeta{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:#6B7280;}
+        </style>"""
+        + _ext_card("MOST HEATWAVE DAYS", hottest, "heatwave_days", "longest_heatwave", TERRACOTTA)
+        + _ext_card("MOST COLD-SNAP DAYS", coldest, "cold_snap_days", "longest_cold_snap", COBALT)
+        + _ext_card("MOST HEAVY-RAIN DAYS", wettest, "heavy_rain_days", "longest_wet_spell", GREEN),
+        unsafe_allow_html=True,
+    )
+st.caption(
+    "Heatwave = 3+ consecutive days max > 35 °C · Cold snap = 3+ days min < 0 °C · "
+    "Heavy rain = 20+ mm. Computed with window functions over the full year."
+)
+
+# --------------------------------------------------------------------------- #
 # Table + definitions + footer
 # --------------------------------------------------------------------------- #
 section("Reference", "City comfort table")
+
+
+def aqi_band_chip(aqi: float):
+    """Return (label, color) for a European AQI value, matching the dbt seed bands."""
+    if pd.isna(aqi):
+        return ("NO DATA", MUTED)
+    for hi, label, col in [
+        (20, "GOOD", GREEN), (40, "FAIR", "#7DA82B"), (60, "MODERATE", OCHRE),
+        (80, "POOR", TERRACOTTA), (100, "VERY POOR", "#B5341F"),
+    ]:
+        if aqi < hi:
+            return (label, col)
+    return ("EXTREME", "#7F1D1D")
+
+
+SORT_OPTS = {
+    "Overall index": ("overall_comfort_index", False),
+    "Comfort score": ("comfort_score", False),
+    "Warmest": ("avg_temp", False),
+    "Cleanest air": ("avg_european_aqi", True),
+}
+sc_l, _sc_r = st.columns([1, 3])
+with sc_l:
+    sort_label = st.selectbox("Sort by", list(SORT_OPTS), index=0, key="lb_sort")
+order_col, asc = SORT_OPTS[sort_label]
+tbl = ranking.sort_values(order_col, ascending=asc, na_position="last").reset_index(drop=True)
+
+MEDALS = {0: "#DAA144", 1: "#C9C9C2", 2: "#C0845A"}  # gold / silver / bronze
+rows_html = []
+for i, r in tbl.iterrows():
+    cs = float(r["comfort_score"])
+    bar_w = max(4.0, min(100.0, cs))
+    bar_col = GREEN if cs >= 50 else OCHRE if cs >= 25 else TERRACOTTA
+    band, band_col = aqi_band_chip(r["avg_european_aqi"])
+    aqi_txt = "—" if pd.isna(r["avg_european_aqi"]) else f"{r['avg_european_aqi']:.0f}"
+    rank_bg = MEDALS.get(i, "transparent")
+    rows_html.append(
+        f'<div class="crow" style="animation-delay:{i * 0.03:.2f}s">'
+        f'<span class="crank" style="background:{rank_bg}">{i + 1}</span>'
+        f'<span class="ccity">{r["city_name"]}</span>'
+        f'<span class="cbarwrap"><span class="cbar" style="--w:{bar_w:.0f}%;background:{bar_col}"></span>'
+        f'<span class="cbarlab">{cs:.0f}</span></span>'
+        f'<span class="cnum">{r["avg_temp"]:.1f}°</span>'
+        f'<span class="cband" style="border-color:{band_col};color:{band_col}">{band} {aqi_txt}</span>'
+        f'<span class="cnum cidx">{r["overall_comfort_index"]:.1f}</span>'
+        "</div>"
+    )
+head_html = (
+    '<div class="crow chead">'
+    "<span>#</span><span>CITY</span><span>COMFORT SCORE</span><span>AVG</span>"
+    "<span>AIR QUALITY</span><span>INDEX</span></div>"
+)
+st.markdown(
+    """<style>
+    .ctable{border:2px solid #111827;background:#111827;display:flex;flex-direction:column;gap:2px;}
+    .crow{display:grid;grid-template-columns:44px 1.25fr 1.6fr 60px 138px 64px;align-items:center;
+      gap:.7rem;padding:.5rem .85rem;background:#fff;opacity:0;transform:translateY(10px);
+      animation:lbRowIn .5s ease forwards;}
+    .crow:hover{background:#FBFAF6;}
+    .chead{background:#111827;font-family:'JetBrains Mono',monospace;font-size:.64rem;
+      letter-spacing:.09em;font-weight:700;opacity:1;transform:none;animation:none;}
+    .chead span{color:#fff;}
+    .crank{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;
+      border:2px solid #111827;font-family:'JetBrains Mono',monospace;font-weight:800;font-size:.82rem;color:#111827;}
+    .ccity{font-family:'Darker Grotesque','JetBrains Mono',monospace;font-weight:800;font-size:.96rem;color:#111827;}
+    .cbarwrap{position:relative;height:22px;background:#EDEAE0;border:2px solid #111827;overflow:hidden;}
+    .cbar{display:block;height:100%;width:var(--w);animation:lbBarFill 1s cubic-bezier(.2,.7,.2,1);}
+    .cbarlab{position:absolute;right:6px;top:0;line-height:22px;font-family:'JetBrains Mono',monospace;
+      font-weight:800;font-size:.72rem;color:#111827;}
+    .cnum{font-family:'JetBrains Mono',monospace;font-weight:700;color:#111827;text-align:right;}
+    .cidx{font-size:1.02rem;}
+    .cband{font-family:'JetBrains Mono',monospace;font-size:.62rem;font-weight:800;border:2px solid;
+      padding:.2rem .3rem;text-align:center;white-space:nowrap;}
+    @keyframes lbRowIn{to{opacity:1;transform:none;}}
+    @keyframes lbBarFill{from{width:0;}}
+    </style>"""
+    + f'<div class="ctable">{head_html}{"".join(rows_html)}</div>',
+    unsafe_allow_html=True,
+)
+
 table = ranking[[
     "city_name", "days", "avg_temp", "comfortable_days", "rainy_days",
     "windy_days", "hot_days", "comfort_score", "avg_european_aqi", "overall_comfort_index",
@@ -671,11 +984,12 @@ table = ranking[[
     "hot_days": "Hot", "comfort_score": "Comfort score",
     "avg_european_aqi": "Avg AQI", "overall_comfort_index": "Overall index",
 })
-st.dataframe(
-    table.style.format({"Avg °C": "{:.1f}", "Comfort score": "{:.1f}",
-                        "Avg AQI": "{:.1f}", "Overall index": "{:.1f}"}),
-    width="stretch", hide_index=True,
-)
+with st.expander("Full numeric table (sortable)"):
+    st.dataframe(
+        table.style.format({"Avg °C": "{:.1f}", "Comfort score": "{:.1f}",
+                            "Avg AQI": "{:.1f}", "Overall index": "{:.1f}"}),
+        width="stretch", hide_index=True,
+    )
 
 with st.expander("METRIC DEFINITIONS"):
     st.markdown(

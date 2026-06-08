@@ -1,0 +1,7 @@
+band_order,aqi_band,aqi_min,aqi_max,health_note
+1,Good,0,20,Air quality is satisfactory and poses little or no risk
+2,Fair,20,40,Air quality is acceptable for most people
+3,Moderate,40,60,Sensitive groups may experience minor effects
+4,Poor,60,80,Increased likelihood of effects for sensitive groups
+5,Very Poor,80,100,Health alert; everyone may begin to experience effects
+6,Extremely Poor,100,100000,Serious health effects; avoid outdoor exertion

@@ -84,6 +84,13 @@ models:
         description: "Calendar date of the observation."
         tests:
           - not_null
+      - name: season
+        description: "Meteorological season of the date (Winter/Spring/Summer/Autumn)."
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["Winter", "Spring", "Summer", "Autumn"]
       - name: temperature_2m_max
         description: "Maximum daily temperature at 2m in Celsius."
         tests:
@@ -185,6 +192,14 @@ models:
         description: "95th percentile European AQI."
       - name: hourly_readings_count
         description: "Number of hourly readings aggregated into the day."
+      - name: aqi_band
+        description: "EEA health band for the day's average AQI (from the aqi_health_bands seed)."
+        tests:
+          - accepted_values:
+              arguments:
+                values: ["Good", "Fair", "Moderate", "Poor", "Very Poor", "Extremely Poor"]
+      - name: aqi_band_order
+        description: "Ordinal severity of the AQI band, 1 (best) to 6 (worst)."
 
   - name: fct_forecast_city_day
     description: >

@@ -32,9 +32,10 @@ daily_aggregated as (
         ) }} as air_quality_daily_sk
 
     from hourly
-    where pm10 is not null
-       or pm2_5 is not null
-       or european_aqi is not null
+    where
+        pm10 is not null
+        or pm2_5 is not null
+        or european_aqi is not null
     group by
         location_id,
         city_name,

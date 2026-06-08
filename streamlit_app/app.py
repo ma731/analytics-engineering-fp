@@ -226,6 +226,7 @@ st.markdown(
       /* Framed charts + table */
       div[data-testid="stPlotlyChart"] {{
         border:3px solid {INK}; background:{PAPER}; padding:.55rem; box-shadow:6px 6px 0 {INK};
+        overflow: hidden;
       }}
       div[data-testid="stDataFrame"] {{ border:3px solid {INK}; box-shadow:6px 6px 0 {INK}; }}
 
@@ -609,11 +610,30 @@ def meter_card(label, value, vmin, vmax, color, suffix=""):
 section("Instruments", "At a glance")
 aqi_mean = a["avg_european_aqi"].mean() if not a.empty else 0.0
 g1, g2, g3 = st.columns(3)
+<<<<<<< Updated upstream
 g1.markdown(meter_card("Overall comfort", ranking["overall_comfort_index"].mean(), -20, 100, TERRACOTTA),
             unsafe_allow_html=True)
 g2.markdown(meter_card("Comfort score", ranking["comfort_score"].mean(), 0, 100, OCHRE),
             unsafe_allow_html=True)
 g3.markdown(meter_card("Air quality · AQI", aqi_mean, 0, 100, GREEN), unsafe_allow_html=True)
+=======
+with g1:
+    st.plotly_chart(gauge(
+        ranking["overall_comfort_index"].mean(), "OVERALL COMFORT", -20, 40,
+        [{"range": [-20, 0], "color": "#fde8e4"}, {"range": [0, 20], "color": "#fbf3dd"},
+         {"range": [20, 40], "color": "#e3f5ea"}], TERRACOTTA), use_container_width=True)
+with g2:
+    st.plotly_chart(gauge(
+        w["temperature_2m_mean"].mean(), "AVG TEMPERATURE", 0, 40,
+        [{"range": [0, 18], "color": "#e6eefb"}, {"range": [18, 26], "color": "#e3f5ea"},
+         {"range": [26, 40], "color": "#fde8e4"}], COBALT, " °C"), use_container_width=True)
+with g3:
+    aqi_mean = a["avg_european_aqi"].mean() if not a.empty else 0
+    st.plotly_chart(gauge(
+        aqi_mean, "AIR QUALITY (AQI)", 0, 100,
+        [{"range": [0, 25], "color": "#e3f5ea"}, {"range": [25, 50], "color": "#fbf3dd"},
+         {"range": [50, 100], "color": "#fde8e4"}], GREEN), use_container_width=True)
+>>>>>>> Stashed changes
 
 
 # --------------------------------------------------------------------------- #

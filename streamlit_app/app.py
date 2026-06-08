@@ -226,6 +226,7 @@ st.markdown(
       /* Framed charts + table */
       div[data-testid="stPlotlyChart"] {{
         border:3px solid {INK}; background:{PAPER}; padding:.55rem; box-shadow:6px 6px 0 {INK};
+        overflow: hidden;
       }}
       div[data-testid="stDataFrame"] {{ border:3px solid {INK}; box-shadow:6px 6px 0 {INK}; }}
 
@@ -348,17 +349,23 @@ def load_daily_aqi() -> pd.DataFrame:
 
 @st.cache_data(ttl=600)
 def load_season_summary() -> pd.DataFrame:
-    return get_connection().sql(
-        "select city_name, season, total_days, avg_temperature_c, "
-        "avg_max_temperature_c, avg_min_temperature_c, total_precipitation_mm, "
-        "comfortable_days, rainy_days, hot_days, freezing_days, comfort_score "
-        "from main.mart_city_season_summary"
-    ).df()
+    try:
+        return get_connection().sql(
+            "select city_name, season, total_days, avg_temperature_c, "
+            "avg_max_temperature_c, avg_min_temperature_c, total_precipitation_mm, "
+            "comfortable_days, rainy_days, hot_days, freezing_days, comfort_score "
+            "from main.mart_city_season_summary"
+        ).df()
+    except Exception:
+        return pd.DataFrame()
 
 
 @st.cache_data(ttl=600)
 def load_extreme_events() -> pd.DataFrame:
-    return get_connection().sql("select * from main.mart_extreme_events").df()
+    try:
+        return get_connection().sql("select * from main.mart_extreme_events").df()
+    except Exception:
+        return pd.DataFrame()
 
 
 # --------------------------------------------------------------------------- #
@@ -635,8 +642,12 @@ with o_left:
         color="overall_comfort_index", color_continuous_scale=COMFORT_SCALE,
         text="overall_comfort_index",
         labels={"overall_comfort_index": "Overall comfort index", "city_name": ""},
+        custom_data=["city_name", "overall_comfort_index"],
     )
-    fig_rank.update_traces(textposition="outside", cliponaxis=False, textfont=dict(color=INK))
+    fig_rank.update_traces(
+        textposition="outside", cliponaxis=False, textfont=dict(color=INK),
+        hovertemplate="<b>%{customdata[0]}</b><br>Overall Comfort Index = %{customdata[1]:.1f}<extra></extra>",
+    )
     fig_rank.update_layout(coloraxis_showscale=False, yaxis={"categoryorder": "total ascending"})
     fig_rank = style_fig(fig_rank, height=rank_height, bars=True)
     # extend the x-axis and right margin so the longest bar's value label isn't clipped
@@ -656,10 +667,17 @@ with o_right:
     map_df["size"] = map_df["population"].clip(lower=1).pow(0.5)
     fig_map = px.scatter_mapbox(
         map_df, lat="latitude", lon="longitude", color="overall_comfort_index",
-        size="size", hover_name="city_name", size_max=30, zoom=4.3,
+        size="size", size_max=30, zoom=4.3,
         color_continuous_scale=COMFORT_SCALE,
-        hover_data={"latitude": False, "longitude": False, "size": False,
-                    "overall_comfort_index": ":.1f", "avg_temp": ":.1f"},
+        custom_data=["city_name", "overall_comfort_index", "avg_temp"],
+    )
+    fig_map.update_traces(
+        hovertemplate=(
+            "<b>%{customdata[0]}</b><br>"
+            "Overall Comfort Index = %{customdata[1]:.1f}<br>"
+            "Avg Temperature = %{customdata[2]:.1f} °C"
+            "<extra></extra>"
+        )
     )
     fig_map.update_layout(mapbox_style="carto-positron", height=340,
                           margin=dict(l=0, r=0, t=30, b=0), paper_bgcolor="rgba(0,0,0,0)",
@@ -687,6 +705,16 @@ if not anim.empty:
         range_y=[max(0, anim["avg_european_aqi"].min() - 8), anim["avg_european_aqi"].max() + 8],
         labels={"temperature_2m_mean": "Mean temp (°C)", "avg_european_aqi": "European AQI",
                 "city_name": "City"},
+        custom_data=["city_name", "temperature_2m_mean", "avg_european_aqi", "precipitation_sum"],
+    )
+    fig_anim.update_traces(
+        hovertemplate=(
+            "<b>%{customdata[0]}</b><br>"
+            "Mean Temp = %{customdata[1]:.1f} °C<br>"
+            "AQI = %{customdata[2]:.1f}<br>"
+            "Precipitation = %{customdata[3]:.1f} mm"
+            "<extra></extra>"
+        )
     )
     if show_labels:
         fig_anim.update_traces(textposition="top center", textfont=dict(size=10, color=MUTED))
@@ -710,6 +738,7 @@ with c_left:
         fig_area.add_trace(go.Scatter(
             x=d["weather_date"], y=d["temperature_2m_mean"], name=city, mode="lines",
             line=dict(color=color, width=2.6, shape="spline"),
+            hovertemplate="<b>" + city + "</b><br>Date = %{x|%d %b}<br>Mean Temp = %{y:.1f} °C<extra></extra>",
         ))
     fig_area.update_layout(legend=dict(orientation="h", y=1.04, x=0))
     st.plotly_chart(style_fig(fig_area, height=360), width="stretch")
@@ -728,6 +757,7 @@ with c_right:
         radar.add_trace(go.Scatterpolar(
             r=[warmth, comfort, clean, calm, dry], theta=metrics, fill="toself",
             name=r["city_name"], line=dict(color=color, width=2), fillcolor=_rgba(color, 0.08),
+            hovertemplate="<b>" + r["city_name"] + "</b><br>%{theta} = %{r:.1f}<extra></extra>",
         ))
     radar.update_layout(
         template="plotly_white", height=360, paper_bgcolor="rgba(0,0,0,0)",
@@ -754,6 +784,9 @@ with d_left:
     fig_heat = px.imshow(pivot, color_continuous_scale=HEAT_SCALE, aspect="auto",
                          labels={"x": "", "y": "", "color": "°C"})
     fig_heat.update_xaxes(showticklabels=True, tickformat="%d %b", nticks=10)
+    fig_heat.update_traces(
+        hovertemplate="<b>%{y}</b><br>Date = %{x|%d %b}<br>Mean Temp = %{z:.1f} °C<extra></extra>"
+    )
     st.plotly_chart(style_fig(fig_heat, height=300), width="stretch")
 with d_right:
     melted = ranking.melt(
@@ -769,6 +802,10 @@ with d_right:
         melted, x="city_name", y="day_count", color="condition",
         color_discrete_map={"Comfortable": GREEN, "Rainy": COBALT, "Windy": MUTED, "Hot": TERRACOTTA},
         labels={"city_name": "", "day_count": "Days", "condition": ""},
+        custom_data=["city_name", "condition", "day_count"],
+    )
+    fig_stack.update_traces(
+        hovertemplate="<b>%{customdata[0]}</b><br>%{customdata[1]} Days = %{customdata[2]}<extra></extra>"
     )
     fig_stack.update_layout(legend=dict(orientation="h", y=1.06, x=0))
     st.plotly_chart(style_fig(fig_stack, height=300, bars=True), width="stretch")
@@ -779,117 +816,132 @@ with d_right:
 # --------------------------------------------------------------------------- #
 SEASON_ORDER = ["Winter", "Spring", "Summer", "Autumn"]
 section("Seasons", "Four-season comfort")
-seas = season_summary[season_summary["city_name"].isin(selected_cities)].copy()
-seas["season"] = pd.Categorical(seas["season"], categories=SEASON_ORDER, ordered=True)
-seas = seas.sort_values("season")
-se_left, se_right = st.columns([1.3, 1])
-with se_left:
-    top_season_cities = ranking.head(8)["city_name"].tolist()
-    seas_top = seas[seas["city_name"].isin(top_season_cities)]
-    fig_se = px.bar(
-        seas_top, x="season", y="comfort_score", color="city_name", barmode="group",
-        color_discrete_sequence=CITY_COLORS,
-        labels={"season": "", "comfort_score": "Comfort score", "city_name": ""},
-    )
-    fig_se.update_layout(legend=dict(orientation="h", y=1.06, x=0))
-    st.plotly_chart(style_fig(fig_se, height=360, bars=True), width="stretch")
-with se_right:
-    seas_agg = (
-        seas.groupby("season", observed=True)
-        .agg(t=("avg_temperature_c", "mean"), cs=("comfort_score", "mean"))
-        .reindex(SEASON_ORDER)
-    )
-
-    def _season_color(t: float) -> str:
-        if pd.isna(t):
-            return MUTED
-        return ("#1E3A8A" if t < 6 else COBALT if t < 12 else GREEN
-                if t < 18 else OCHRE if t < 24 else TERRACOTTA)
-
-    cards = []
-    for name in SEASON_ORDER:
-        row = seas_agg.loc[name]
-        t = row["t"]
-        cs = row["cs"]
-        col = _season_color(t)
-        t_txt = "—" if pd.isna(t) else f"{t:.0f}°"
-        cs_txt = "—" if pd.isna(cs) else f"{cs:.0f}"
-        cards.append(
-            f'<div class="seascard" style="border-left:6px solid {col}">'
-            f'<div class="seasname">{name.upper()}</div>'
-            f'<div class="seastemp" style="color:{col}">{t_txt}</div>'
-            f'<div class="seasmeta">avg comfort {cs_txt}</div></div>'
+seas = season_summary[season_summary["city_name"].isin(selected_cities)].copy() if not season_summary.empty else pd.DataFrame()
+if not seas.empty:
+    seas["season"] = pd.Categorical(seas["season"], categories=SEASON_ORDER, ordered=True)
+    seas = seas.sort_values("season")
+if seas.empty:
+    st.info("Season data not available — run `dbt build` to generate `mart_city_season_summary`.")
+else:
+    se_cols = st.columns([1.3, 1])
+    with se_cols[0]:
+        top_season_cities = ranking.head(8)["city_name"].tolist()
+        seas_top = seas[seas["city_name"].isin(top_season_cities)]
+        fig_se = px.bar(
+            seas_top, x="season", y="comfort_score", color="city_name", barmode="group",
+            color_discrete_sequence=CITY_COLORS,
+            labels={"season": "", "comfort_score": "Comfort score", "city_name": ""},
+            custom_data=["city_name", "season", "comfort_score"],
         )
-    st.markdown(
-        """<style>
-        .seasgrid{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;}
-        .seascard{background:#fff;border:2px solid #111827;padding:.7rem .8rem;}
-        .seasname{font-family:'JetBrains Mono',monospace;font-size:.68rem;letter-spacing:.1em;font-weight:700;color:#111827;}
-        .seastemp{font-family:'Darker Grotesque','JetBrains Mono',monospace;font-size:2rem;font-weight:800;line-height:1.1;}
-        .seasmeta{font-family:'JetBrains Mono',monospace;font-size:.66rem;color:#6B7280;}
-        </style>"""
-        + f'<div class="seasgrid">{"".join(cards)}</div>',
-        unsafe_allow_html=True,
+        fig_se.update_traces(
+            hovertemplate="<b>%{customdata[0]}</b><br>Season = %{customdata[1]}<br>Comfort Score = %{customdata[2]:.1f}<extra></extra>"
+        )
+        fig_se.update_layout(legend=dict(orientation="h", y=1.06, x=0))
+        st.plotly_chart(style_fig(fig_se, height=360, bars=True), width="stretch")
+    with se_cols[1]:
+        seas_agg = (
+            seas.groupby("season", observed=True)
+            .agg(t=("avg_temperature_c", "mean"), cs=("comfort_score", "mean"))
+            .reindex(SEASON_ORDER)
+        )
+
+        def _season_color(t: float) -> str:
+            if pd.isna(t):
+                return MUTED
+            return ("#1E3A8A" if t < 6 else COBALT if t < 12 else GREEN
+                    if t < 18 else OCHRE if t < 24 else TERRACOTTA)
+
+        cards = []
+        for name in SEASON_ORDER:
+            row = seas_agg.loc[name]
+            t = row["t"]
+            cs = row["cs"]
+            col = _season_color(t)
+            t_txt = "—" if pd.isna(t) else f"{t:.0f}°"
+            cs_txt = "—" if pd.isna(cs) else f"{cs:.0f}"
+            cards.append(
+                f'<div class="seascard" style="border-left:6px solid {col}">'
+                f'<div class="seasname">{name.upper()}</div>'
+                f'<div class="seastemp" style="color:{col}">{t_txt}</div>'
+                f'<div class="seasmeta">avg comfort {cs_txt}</div></div>'
+            )
+        st.markdown(
+            """<style>
+            .seasgrid{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;}
+            .seascard{background:#fff;border:2px solid #111827;padding:.7rem .8rem;}
+            .seasname{font-family:'JetBrains Mono',monospace;font-size:.68rem;letter-spacing:.1em;font-weight:700;color:#111827;}
+            .seastemp{font-family:'Darker Grotesque','JetBrains Mono',monospace;font-size:2rem;font-weight:800;line-height:1.1;}
+            .seasmeta{font-family:'JetBrains Mono',monospace;font-size:.66rem;color:#6B7280;}
+            </style>"""
+            + f'<div class="seasgrid">{"".join(cards)}</div>',
+            unsafe_allow_html=True,
+        )
+    st.caption(
+        "Meteorological seasons (Winter = Dec–Feb …). Uses the full year of weather, "
+        "independent of the date filter above."
     )
-st.caption(
-    "Meteorological seasons (Winter = Dec–Feb …). Uses the full year of weather, "
-    "independent of the date filter above."
-)
 
 # --------------------------------------------------------------------------- #
 # Extremes — heatwaves, cold snaps, heavy rain (full year, from mart_extreme_events)
 # --------------------------------------------------------------------------- #
 section("Extremes", "Heat, cold & rain")
-ext = extreme_events[extreme_events["city_name"].isin(selected_cities)].copy()
-ex_left, ex_right = st.columns([1.3, 1])
-with ex_left:
-    ext_top = ext.sort_values("heatwave_days", ascending=False).head(10)
-    ext_melt = ext_top.melt(
-        id_vars="city_name",
-        value_vars=["heatwave_days", "cold_snap_days", "heavy_rain_days"],
-        var_name="kind", value_name="days",
-    )
-    ext_melt["kind"] = ext_melt["kind"].map({
-        "heatwave_days": "Heatwave", "cold_snap_days": "Cold snap", "heavy_rain_days": "Heavy rain",
-    })
-    fig_ex = px.bar(
-        ext_melt, x="city_name", y="days", color="kind", barmode="group",
-        color_discrete_map={"Heatwave": TERRACOTTA, "Cold snap": COBALT, "Heavy rain": GREEN},
-        labels={"city_name": "", "days": "Days", "kind": ""},
-    )
-    fig_ex.update_layout(legend=dict(orientation="h", y=1.06, x=0))
-    st.plotly_chart(style_fig(fig_ex, height=360, bars=True), width="stretch")
-with ex_right:
-    def _ext_card(title, row, value_col, streak_col, col, unit="days"):
-        return (
-            f'<div class="extcard" style="border-left:6px solid {col}">'
-            f'<div class="extkind">{title}</div>'
-            f'<div class="extcity">{row["city_name"]}</div>'
-            f'<div class="extbig" style="color:{col}">{int(row[value_col])} <span>{unit}</span></div>'
-            f'<div class="extmeta">longest streak {int(row[streak_col])} days</div></div>'
+ext = extreme_events[extreme_events["city_name"].isin(selected_cities)].copy() if not extreme_events.empty else pd.DataFrame()
+if ext.empty:
+    st.info("Extreme events data not available — run `dbt build` to generate `mart_extreme_events`.")
+else:
+    ex_cols = st.columns([1.3, 1])
+    with ex_cols[0]:
+        ext_top = ext.sort_values("heatwave_days", ascending=False).head(10)
+        ext_melt = ext_top.melt(
+            id_vars="city_name",
+            value_vars=["heatwave_days", "cold_snap_days", "heavy_rain_days"],
+            var_name="kind", value_name="days",
         )
+        ext_melt["kind"] = ext_melt["kind"].map({
+            "heatwave_days": "Heatwave", "cold_snap_days": "Cold snap", "heavy_rain_days": "Heavy rain",
+        })
+        fig_ex = px.bar(
+            ext_melt, x="city_name", y="days", color="kind", barmode="group",
+            color_discrete_map={"Heatwave": TERRACOTTA, "Cold snap": COBALT, "Heavy rain": GREEN},
+            labels={"city_name": "", "days": "Days", "kind": ""},
+            custom_data=["city_name", "kind", "days"],
+        )
+        fig_ex.update_traces(
+            hovertemplate="<b>%{customdata[0]}</b><br>%{customdata[1]} Days = %{customdata[2]}<extra></extra>"
+        )
+        fig_ex.update_layout(legend=dict(orientation="h", y=1.06, x=0))
+        st.plotly_chart(style_fig(fig_ex, height=360, bars=True), width="stretch")
+    with ex_cols[1]:
+        def _ext_card(title, row, value_col, streak_col, col, unit="days"):
+            return (
+                f'<div class="extcard" style="border-left:6px solid {col}">'
+                f'<div class="extkind">{title}</div>'
+                f'<div class="extcity">{row["city_name"]}</div>'
+                f'<div class="extbig" style="color:{col}">{int(row[value_col])} <span>{unit}</span></div>'
+                f'<div class="extmeta">longest streak {int(row[streak_col])} days</div></div>'
+            )
 
-    hottest = ext.sort_values("heatwave_days", ascending=False).iloc[0]
-    coldest = ext.sort_values("cold_snap_days", ascending=False).iloc[0]
-    wettest = ext.sort_values("heavy_rain_days", ascending=False).iloc[0]
-    st.markdown(
-        """<style>
-        .extcard{background:#fff;border:2px solid #111827;padding:.6rem .8rem;margin-bottom:.55rem;}
-        .extkind{font-family:'JetBrains Mono',monospace;font-size:.64rem;letter-spacing:.1em;font-weight:700;color:#6B7280;}
-        .extcity{font-family:'Darker Grotesque','JetBrains Mono',monospace;font-size:1.15rem;font-weight:800;color:#111827;}
-        .extbig{font-family:'Darker Grotesque','JetBrains Mono',monospace;font-size:1.7rem;font-weight:800;line-height:1.05;}
-        .extbig span{font-size:.7rem;font-weight:700;}
-        .extmeta{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:#6B7280;}
-        </style>"""
-        + _ext_card("MOST HEATWAVE DAYS", hottest, "heatwave_days", "longest_heatwave", TERRACOTTA)
-        + _ext_card("MOST COLD-SNAP DAYS", coldest, "cold_snap_days", "longest_cold_snap", COBALT)
-        + _ext_card("MOST HEAVY-RAIN DAYS", wettest, "heavy_rain_days", "longest_wet_spell", GREEN),
-        unsafe_allow_html=True,
+        hottest = ext.sort_values("heatwave_days", ascending=False).iloc[0]
+        coldest = ext.sort_values("cold_snap_days", ascending=False).iloc[0]
+        wettest = ext.sort_values("heavy_rain_days", ascending=False).iloc[0]
+        st.markdown(
+            """<style>
+            .extcard{background:#fff;border:2px solid #111827;padding:.6rem .8rem;margin-bottom:.55rem;}
+            .extkind{font-family:'JetBrains Mono',monospace;font-size:.64rem;letter-spacing:.1em;font-weight:700;color:#6B7280;}
+            .extcity{font-family:'Darker Grotesque','JetBrains Mono',monospace;font-size:1.15rem;font-weight:800;color:#111827;}
+            .extbig{font-family:'Darker Grotesque','JetBrains Mono',monospace;font-size:1.7rem;font-weight:800;line-height:1.05;}
+            .extbig span{font-size:.7rem;font-weight:700;}
+            .extmeta{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:#6B7280;}
+            </style>"""
+            + _ext_card("MOST HEATWAVE DAYS", hottest, "heatwave_days", "longest_heatwave", TERRACOTTA)
+            + _ext_card("MOST COLD-SNAP DAYS", coldest, "cold_snap_days", "longest_cold_snap", COBALT)
+            + _ext_card("MOST HEAVY-RAIN DAYS", wettest, "heavy_rain_days", "longest_wet_spell", GREEN),
+            unsafe_allow_html=True,
+        )
+    st.caption(
+        "Heatwave = 3+ consecutive days max > 35 °C · Cold snap = 3+ days min < 0 °C · "
+        "Heavy rain = 20+ mm. Computed with window functions over the full year."
     )
-st.caption(
-    "Heatwave = 3+ consecutive days max > 35 °C · Cold snap = 3+ days min < 0 °C · "
-    "Heavy rain = 20+ mm. Computed with window functions over the full year."
-)
 
 # --------------------------------------------------------------------------- #
 # Table + definitions + footer

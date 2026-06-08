@@ -32,21 +32,19 @@ go straight to `load_to_duckdb.py`. To regenerate them from the live API, see st
 
 ## 1. How do I run the extraction?
 
-The extractor pulls from four Open-Meteo endpoints (no API key required) and writes four CSVs.
+The extractor pulls from Open-Meteo endpoints (no API key required) and writes four CSVs.
 
 ```bash
-# Pull the built-in list of major Spanish cities via the Open-Meteo geocoding API:
-python scripts/extract_open_meteo.py
-
-# ...or a custom subset:
-python scripts/extract_open_meteo.py --cities Madrid Barcelona Valencia Sevilla Bilbao
+# Reproducible 58-city extraction (reads spain_cities.csv). Pulls ONE FULL YEAR of
+# daily weather from the Archive API, plus recent hourly air quality and a 7-day forecast:
+python scripts/extract_spain_cities.py
 ```
 
-> **About the 58 cities.** The canonical dataset used by the marts and dashboard is the
-> **58-city** set committed under `data/raw/open_meteo/` (city list in
-> [`spain_cities.csv`](spain_cities.csv)). The standard run **skips extraction** and uses
-> those committed CSVs, so the numbers always match. Re-running the extractor pulls a
-> comparable national set from the live API — use the committed CSVs to reproduce exactly.
+> **About the 58 cities.** The canonical dataset is the **58-city** set committed under
+> `data/raw/open_meteo/` (city list in [`spain_cities.csv`](spain_cities.csv)).
+> `scripts/extract_spain_cities.py` regenerates it deterministically from that file, so a
+> re-extraction reproduces the same cities and a full year of weather (used for the
+> four-season analysis). The standard run **skips extraction** and uses the committed CSVs.
 
 Or run the whole pipeline (extract → load → dbt build) in one command:
 
@@ -59,8 +57,8 @@ Output (written to `data/raw/open_meteo/`):
 
 | File | Source endpoint | Grain |
 |---|---|---|
-| `raw_locations.csv` | Geocoding API | one row per city |
-| `raw_weather_daily.csv` | Forecast API (`past_days`) | one row per city per day |
+| `raw_locations.csv` | `spain_cities.csv` | one row per city |
+| `raw_weather_daily.csv` | Archive API (1 year) | one row per city per day |
 | `raw_forecast_daily.csv` | Forecast API | one row per city per forecast date per run |
 | `raw_air_quality_hourly.csv` | Air Quality API | one row per city per hour |
 
@@ -82,10 +80,10 @@ dbt build         # runs every model and every test
 ```
 
 `dbt build` materializes staging and intermediate as **views** and marts as **tables**,
-then runs the full test suite (PK uniqueness, not-null, foreign-key relationships,
-accepted values, range expectations, and two custom singular tests).
+seeds the AQI health bands, then runs the full test suite (PK uniqueness, not-null,
+foreign-key relationships, accepted values, range expectations, and two custom singular tests).
 
-Current run: **12 models, 72 tests, all passing.**
+Current run: **15 models, 95 tests, 1 seed — all passing.**
 
 ## 4. How do I launch the dashboard?
 
@@ -104,10 +102,22 @@ cities" toggle), a date filter, and reads **only from the mart models**, never t
 | Mart model | Grain | Used for |
 |---|---|---|
 | `mart_city_weather_summary` | one row per city | KPI cards, comfort ranking, map |
+| `mart_city_season_summary` | one row per city per season | four-season comfort comparison |
+| `mart_extreme_events` | one row per city | heatwave / cold-snap / heavy-rain view |
 | `fct_city_weather_day` | one row per city per day | temperature trend, day-type breakdown, distribution |
-| `fct_air_quality_city_day` | one row per city per day | air-quality comparison |
+| `fct_air_quality_city_day` | one row per city per day | air-quality comparison + EEA health band |
 
 `dim_location` is the conformed dimension every fact joins back to via `location_sk`.
+
+### dbt features used
+
+Beyond the three-layer star schema, the project exercises the dbt toolkit end to end:
+
+- **Seed** — `seeds/aqi_health_bands.csv` (EEA AQI bands), range-joined into the air-quality fact.
+- **Macro** — `season_from_date()` classifies each date into its meteorological season.
+- **Window functions** — `int_weather_extreme_streaks` uses gaps-and-islands to find consecutive heatwave / cold-snap / wet-spell runs.
+- **Exposure** — `models/exposures.yml` declares the Streamlit dashboard in the lineage graph, so `dbt build --select +exposure:city_comfort_index_dashboard` rebuilds exactly what it reads.
+- **Packages** — `dbt_utils` (surrogate keys), `dbt_expectations` (range tests), `dbt_date`.
 
 ## 6. What modeling choices did we make and why?
 
@@ -131,14 +141,17 @@ Short version below; the full write-up is in [`docs/modeling_decisions.md`](docs
 analytics-engineering-fp/
 ├── data/raw/open_meteo/        # committed raw CSVs (DuckDB file is git-ignored)
 ├── scripts/
-│   ├── extract_open_meteo.py   # pulls the 4 endpoints -> CSVs
+│   ├── extract_spain_cities.py # reproducible 58-city pull (1 year) -> CSVs
 │   ├── load_to_duckdb.py       # CSVs -> DuckDB raw schema
 │   └── run_pipeline.sh         # extract -> load -> dbt build, one command
+├── macros/                     # season_from_date() Jinja macro
+├── seeds/                      # aqi_health_bands.csv (EEA AQI bands) + schema
 ├── models/
 │   ├── sources.yml             # 4 registered sources
+│   ├── exposures.yml           # dashboard declared as a dbt exposure
 │   ├── staging/                # stg_* (4 views) + docs/tests
-│   ├── intermediate/           # int_* (3 views) + docs/tests
-│   └── marts/                  # dim/fct/mart (5 tables) + docs/tests
+│   ├── intermediate/           # int_* (4 views) + docs/tests
+│   └── marts/                  # dim/fct/mart (7 tables) + docs/tests
 ├── tests/                      # 2 custom singular tests
 ├── streamlit_app/app.py        # City Comfort Index dashboard
 ├── docs/                       # screenshots + modeling_decisions.md
@@ -190,9 +203,11 @@ the forecast horizon and the past-days actuals window (currently one day per cit
 extractor on a schedule accumulates forecast snapshots and grows this fact over time, which is
 how a richer forecast-accuracy view is built.
 
-Air-quality history from the Open-Meteo Air Quality API is a shorter window than the daily
-weather (a few days of hourly readings vs ~30 days of weather), so `fct_air_quality_city_day`
-covers fewer days than `fct_city_weather_day`.
+Daily weather covers a **full year** (Archive API) so the four-season comparison and the
+extreme-event streaks are meaningful. The Open-Meteo Air Quality API only serves a shorter
+recent window (~90 days of hourly readings), so `fct_air_quality_city_day` covers fewer days
+than `fct_city_weather_day`, and the air-quality signal in the comfort index is recent rather
+than seasonal.
 
 ## Tech stack
 

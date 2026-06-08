@@ -24,6 +24,8 @@ from Streamlit).
 | `fct_air_quality_city_day` | one row per city per calendar day |
 | `fct_forecast_city_day` | one row per city per forecast date per extraction run |
 | `mart_city_weather_summary` | one row per city (rolled up over the window) |
+| `mart_city_season_summary` | one row per city per meteorological season |
+| `mart_extreme_events` | one row per city (extreme-event counts + longest streaks) |
 
 Every fact's grain is enforced with a `unique` + `not_null` test on its surrogate key, and
 every fact carries `location_sk` with a `relationships` test back to `dim_location`.
@@ -62,3 +64,38 @@ In a single extraction the comparison covers only the date(s) where the forecast
 the past-days actuals window overlap (currently one day per city). Running the extractor on a
 schedule accumulates forecast snapshots and grows this fact into a fuller forecast-accuracy
 history. The models are built and tested for that workflow.
+
+## Seasonal analysis
+
+Daily weather is pulled for a **full year** (Open-Meteo Archive API), so the data spans all
+four seasons. A `season_from_date()` macro classifies each date into its **meteorological**
+season (Winter = Dec–Feb, Spring = Mar–May, Summer = Jun–Aug, Autumn = Sep–Nov) — the whole-month
+convention used for climate aggregation. `fct_city_weather_day` carries the `season` column, and
+`mart_city_season_summary` rolls comfort up to one row per city per season so the dashboard can
+compare, e.g., Sevilla's summer vs winter comfort. The macro keeps the rule defined once and
+reused, rather than copy-pasted across models.
+
+## Extreme-event streaks (window functions)
+
+`int_weather_extreme_streaks` detects **consecutive** runs of extreme days using the classic
+gaps-and-islands pattern: the difference between a global `row_number()` and a per-flag
+`row_number()` is constant across a contiguous run of identical flag values, so counting rows
+within each `(flag, island)` partition yields the run length. We label a **heatwave** as ≥3
+consecutive hot days, a **cold snap** as ≥3 consecutive freezing days, and a **wet spell** as ≥2
+consecutive heavy-rain days. `mart_extreme_events` aggregates these to one row per city (event-day
+counts and the longest streak of each) — a metric you cannot express with a plain `group by`.
+
+## AQI health bands (seed)
+
+`seeds/aqi_health_bands.csv` encodes the EEA European-AQI health scale (Good / Fair / Moderate /
+Poor / Very Poor / Extremely Poor). It is range-joined into `fct_air_quality_city_day`
+(`avg_european_aqi` between `aqi_min` and `aqi_max`) to attach a human-readable `aqi_band` and an
+ordinal `aqi_band_order`. Keeping the thresholds in a seed means the classification is versioned,
+testable (`accepted_values`), and editable without touching SQL.
+
+## Exposure
+
+`models/exposures.yml` declares the Streamlit dashboard as a dbt **exposure** that depends on the
+marts it reads. This puts the dashboard in the lineage graph, documents the marts-only contract
+(the app never reads raw files), and lets `dbt build --select +exposure:city_comfort_index_dashboard`
+rebuild exactly the models the dashboard needs.

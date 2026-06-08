@@ -16,6 +16,7 @@ Run from the project root:
 
 from __future__ import annotations
 
+import base64
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -44,6 +45,23 @@ DANGER = "#DC2626"
 MUTED = "#6B7280"
 
 CITY_COLORS = [TERRACOTTA, COBALT, OCHRE, GREEN, VIOLET]
+
+# City spotlight photos (committed under streamlit_app/assets/cities)
+ASSETS = Path(__file__).resolve().parent / "assets" / "cities"
+CITY_PHOTOS = {
+    "Madrid": ASSETS / "madrid.jpg",
+    "Barcelona": ASSETS / "barcelona.jpg",
+    "Valencia": ASSETS / "valencia.jpg",
+    "Sevilla": ASSETS / "sevilla.jpg",
+    "Bilbao": ASSETS / "bilbao.jpg",
+}
+CITY_BLURBS = {
+    "Madrid": "Gran Vía at golden hour — the capital's restless heart.",
+    "Barcelona": "Gaudí's Sagrada Família against the Mediterranean sky.",
+    "Valencia": "Calatrava's City of Arts — the future on the Turia.",
+    "Sevilla": "Plaza de España — Andalusian sun and tilework.",
+    "Bilbao": "The Guggenheim's titanium curves on the Nervión.",
+}
 COMFORT_SCALE = [DANGER, TERRACOTTA, OCHRE, GREEN]   # low -> high (good)
 AQI_SCALE = [GREEN, OCHRE, TERRACOTTA, DANGER]       # low (good) -> high (bad)
 HEAT_SCALE = ["#1E3A8A", COBALT, GREEN, OCHRE, TERRACOTTA]  # cold -> hot
@@ -141,6 +159,26 @@ st.markdown(
       section[data-testid="stSidebar"] {{ background:{CREAM}; border-right:3px solid {INK}; }}
       .footnote {{ font-family:'JetBrains Mono',monospace; color:{MUTED}; font-size:.76rem; line-height:1.55; }}
       .footer {{ border-top:3px solid {INK}; margin-top:2rem; padding-top:.8rem; }}
+
+      /* City spotlight (NOWNESS-style cinematic carousel) */
+      .spotlight {{ position:relative; height:430px; border:4px solid {INK};
+        box-shadow:10px 10px 0 {INK}; background-size:cover; background-position:center;
+        display:flex; align-items:flex-end; overflow:hidden; margin-bottom:.9rem; }}
+      .spot-inner {{ width:100%; padding:1.4rem 1.7rem;
+        background:linear-gradient(to top, rgba(0,0,0,.80), rgba(0,0,0,.20) 55%, transparent); }}
+      .spot-kicker {{ color:#fff; font-family:'JetBrains Mono',monospace; font-size:.72rem;
+        font-weight:700; letter-spacing:.16em; text-transform:uppercase; opacity:.92; }}
+      .spot-city {{ color:#fff !important; font-family:'Darker Grotesque',sans-serif; font-weight:900;
+        font-size:clamp(2.4rem,5vw,3.6rem); line-height:.9; margin:.1rem 0 .25rem; text-transform:uppercase; }}
+      .spot-blurb {{ color:#f1f1f1; font-family:'JetBrains Mono',monospace; font-size:.8rem;
+        margin:0 0 .75rem; max-width:640px; }}
+      .spot-play {{ position:absolute; top:1.1rem; right:1.2rem; width:46px; height:46px;
+        border:2px solid #fff; color:#fff; display:flex; align-items:center; justify-content:center;
+        font-size:1.05rem; background:rgba(0,0,0,.28); }}
+      .spot-stats {{ display:flex; gap:.5rem; flex-wrap:wrap; }}
+      .spot-stat {{ background:rgba(255,255,255,.14); border:2px solid rgba(255,255,255,.6);
+        color:#fff; padding:.3rem .6rem; font-size:.74rem; font-weight:700; }}
+      .thumb {{ width:100%; height:78px; object-fit:cover; border:2px solid {INK}; display:block; }}
       * {{ border-radius:0 !important; }}
     </style>
     """,
@@ -152,6 +190,13 @@ def _rgba(hex_color: str, alpha: float) -> str:
     h = hex_color.lstrip("#")
     r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
     return f"rgba({r},{g},{b},{alpha})"
+
+
+@st.cache_data
+def img_b64(path: Path) -> str:
+    """Base64-encode a local image so it can be inlined in CSS/HTML (works on Cloud)."""
+    p = Path(path)
+    return base64.b64encode(p.read_bytes()).decode() if p.exists() else ""
 
 
 def style_fig(fig: go.Figure, height: int = 340, bars: bool = False) -> go.Figure:
@@ -347,6 +392,62 @@ def live_status() -> None:
 
 
 live_status()
+
+# --------------------------------------------------------------------------- #
+# City spotlight — auto-rotating cinematic carousel with real city photos
+# --------------------------------------------------------------------------- #
+section("City spotlight", "Postcards from the data")
+photo_cities = [c for c in CITY_PHOTOS if c in selected_cities] or list(CITY_PHOTOS)
+
+
+@st.fragment(run_every="4s")
+def city_spotlight() -> None:
+    n = len(photo_cities)
+    idx = st.session_state.get("spot_idx", 0) % n
+    st.session_state["spot_idx"] = idx + 1
+    city = photo_cities[idx]
+    b64 = img_b64(CITY_PHOTOS[city])
+    bg = f"url(data:image/jpeg;base64,{b64})" if b64 else "linear-gradient(120deg,#DD614C,#C2410C)"
+    row = summary[summary["city_name"] == city]
+    temp = f"{row['avg_temperature_c'].iloc[0]:.1f} °C" if not row.empty else "—"
+    comfort = f"{row['overall_comfort_index'].iloc[0]:.0f}" if not row.empty else "—"
+    aqi_val = row["avg_air_quality_index"].iloc[0] if not row.empty else None
+    aqi = f"{aqi_val:.0f}" if aqi_val is not None and pd.notna(aqi_val) else "—"
+    st.markdown(
+        f"""
+        <div class="spotlight" style="background-image:{bg};">
+          <div class="spot-play">&#9654;</div>
+          <div class="spot-inner">
+            <div class="spot-kicker">City spotlight &middot; {idx + 1}/{n}</div>
+            <div class="spot-city">{city}</div>
+            <div class="spot-blurb">{CITY_BLURBS.get(city, "")}</div>
+            <div class="spot-stats">
+              <span class="spot-stat">{temp}</span>
+              <span class="spot-stat">COMFORT {comfort}</span>
+              <span class="spot-stat">AQI {aqi}</span>
+            </div>
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+city_spotlight()
+
+# Thumbnail strip of all spotlight cities
+tcols = st.columns(len(photo_cities))
+for col, c in zip(tcols, photo_cities):
+    b = img_b64(CITY_PHOTOS[c])
+    with col:
+        if b:
+            st.markdown(
+                f'<img class="thumb" src="data:image/jpeg;base64,{b}" alt="{c}" />',
+                unsafe_allow_html=True,
+            )
+        st.caption(c)
+
+st.markdown("")
 
 # --------------------------------------------------------------------------- #
 # KPI cards

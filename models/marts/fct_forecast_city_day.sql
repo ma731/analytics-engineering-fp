@@ -1,3 +1,13 @@
+-- Incremental: each extraction run appends its forecast snapshot. The unique
+-- key includes forecast_extracted_at, so re-running accumulates a forecast
+-- history over time rather than overwriting it. On a fresh warehouse this builds
+-- the full table; on subsequent runs only newer snapshots are inserted.
+{{ config(
+    materialized='incremental',
+    unique_key='forecast_city_day_sk',
+    on_schema_change='append_new_columns'
+) }}
+
 with forecast_vs_actual as (
 
     select * from {{ ref('int_forecast_vs_actual') }}
@@ -7,7 +17,9 @@ with forecast_vs_actual as (
 final as (
 
     select
-        forecast_vs_actual_sk as forecast_city_day_sk,
+        {{ dbt_utils.generate_surrogate_key(
+            ['location_id', 'forecast_date', 'forecast_extracted_at']
+        ) }} as forecast_city_day_sk,
         {{ dbt_utils.generate_surrogate_key(['location_id']) }} as location_sk,
         location_id,
         city_name,
@@ -37,3 +49,6 @@ final as (
 )
 
 select * from final
+{% if is_incremental() %}
+where forecast_extracted_at > (select coalesce(max(forecast_extracted_at), '1900-01-01') from {{ this }})
+{% endif %}

@@ -1,0 +1,53 @@
+version: 2
+
+# Unit tests: feed mocked input rows to a model and assert its transformation
+# logic (not the warehouse data). These run inside `dbt build` / `dbt test`.
+
+unit_tests:
+  - name: test_weather_flags
+    description: "is_rainy/is_windy/is_hot/is_freezing thresholds + temp_range_c."
+    model: int_city_day_weather
+    given:
+      - input: ref('stg_weather_daily')
+        rows:
+          - {location_id: 1, weather_date: "2025-07-15", temperature_2m_max: 24, temperature_2m_min: 15, temperature_2m_mean: 20, rain_sum: 0, wind_speed_10m_max: 10, weather_daily_sk: "wsk1"}
+          - {location_id: 1, weather_date: "2026-01-10", temperature_2m_max: 37, temperature_2m_min: -2, temperature_2m_mean: 30, rain_sum: 5, wind_speed_10m_max: 50, weather_daily_sk: "wsk2"}
+      - input: ref('stg_locations')
+        rows:
+          - {location_id: 1, city_name: "Testville", country: "Spain", country_code: "ES"}
+    expect:
+      rows:
+        - {city_day_weather_sk: "wsk1", is_rainy: false, is_windy: false, is_hot: false, is_freezing: false, temp_range_c: 9}
+        - {city_day_weather_sk: "wsk2", is_rainy: true, is_windy: true, is_hot: true, is_freezing: true, temp_range_c: 39}
+
+  - name: test_comfort_and_season
+    description: "is_comfortable rule + season_from_date macro."
+    model: fct_city_weather_day
+    given:
+      - input: ref('int_city_day_weather')
+        rows:
+          - {city_day_weather_sk: "c1", location_id: 1, weather_date: "2025-07-15", temperature_2m_mean: 22, is_rainy: false, is_windy: false, is_hot: false, is_freezing: false}
+          - {city_day_weather_sk: "c2", location_id: 1, weather_date: "2026-01-10", temperature_2m_mean: 10, is_rainy: false, is_windy: false, is_hot: false, is_freezing: false}
+          - {city_day_weather_sk: "c3", location_id: 1, weather_date: "2025-10-10", temperature_2m_mean: 21, is_rainy: true, is_windy: false, is_hot: false, is_freezing: false}
+    expect:
+      rows:
+        - {city_weather_day_sk: "c1", is_comfortable: true, season: "Summer"}
+        - {city_weather_day_sk: "c2", is_comfortable: false, season: "Winter"}
+        - {city_weather_day_sk: "c3", is_comfortable: false, season: "Autumn"}
+
+  - name: test_heatwave_detection
+    description: "in_heatwave flags a run of 3+ consecutive hot days (window functions)."
+    model: int_weather_extreme_streaks
+    given:
+      - input: ref('int_city_day_weather')
+        rows:
+          - {location_id: 1, weather_date: "2025-07-01", is_hot: false, is_freezing: false, rain_sum: 0, temperature_2m_max: 30, temperature_2m_min: 18}
+          - {location_id: 1, weather_date: "2025-07-02", is_hot: true, is_freezing: false, rain_sum: 0, temperature_2m_max: 36, temperature_2m_min: 21}
+          - {location_id: 1, weather_date: "2025-07-03", is_hot: true, is_freezing: false, rain_sum: 0, temperature_2m_max: 38, temperature_2m_min: 22}
+          - {location_id: 1, weather_date: "2025-07-04", is_hot: true, is_freezing: false, rain_sum: 0, temperature_2m_max: 37, temperature_2m_min: 23}
+    expect:
+      rows:
+        - {weather_date: "2025-07-01", in_heatwave: false, heat_streak: 0}
+        - {weather_date: "2025-07-02", in_heatwave: true, heat_streak: 3}
+        - {weather_date: "2025-07-03", in_heatwave: true, heat_streak: 3}
+        - {weather_date: "2025-07-04", in_heatwave: true, heat_streak: 3}

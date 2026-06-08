@@ -1,0 +1,93 @@
+version: 2
+
+models:
+  - name: mart_city_month_summary
+    description: >
+      Monthly comfort summary. Grain: one row per city per calendar month
+      (up to 12). Powers the "best month to visit" picker in the planner tool.
+    columns:
+      - name: city_month_sk
+        description: "Surrogate primary key (one row per city per month)."
+        tests:
+          - unique
+          - not_null
+      - name: location_sk
+        description: "Foreign key to dim_location."
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_location')
+                field: location_sk
+      - name: location_id
+        tests:
+          - not_null
+      - name: city_name
+        tests:
+          - not_null
+      - name: month_num
+        description: "Calendar month number, 1-12."
+        tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 1
+                max_value: 12
+      - name: month_name
+        description: "Calendar month name."
+        tests:
+          - not_null
+      - name: season
+        description: "Meteorological season the month belongs to."
+        tests:
+          - accepted_values:
+              arguments:
+                values: ["Winter", "Spring", "Summer", "Autumn"]
+      - name: total_days
+        description: "Days observed in the month for the city."
+        tests:
+          - non_negative
+      - name: comfort_score
+        description: "Share of comfortable days in the month, 0-100."
+        tests:
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 0
+                max_value: 100
+
+  - name: mart_temperature_anomaly
+    description: >
+      Daily temperature anomaly. Grain: one row per city per day. Each day's mean
+      temperature is compared to that city's seasonal average (window functions);
+      anomaly_z is the deviation in standard deviations.
+    columns:
+      - name: anomaly_sk
+        description: "Surrogate primary key (one row per city per day)."
+        tests:
+          - unique
+          - not_null
+      - name: location_sk
+        description: "Foreign key to dim_location."
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_location')
+                field: location_sk
+      - name: location_id
+        tests:
+          - not_null
+      - name: weather_date
+        description: "Calendar date."
+        tests:
+          - not_null
+      - name: season
+        description: "Meteorological season of the date."
+        tests:
+          - accepted_values:
+              arguments:
+                values: ["Winter", "Spring", "Summer", "Autumn"]
+      - name: anomaly_c
+        description: "Mean temperature minus the city's seasonal average (Celsius)."
+      - name: anomaly_z
+        description: "Anomaly expressed in standard deviations from the seasonal mean."

@@ -22,3 +22,7 @@ models:
       +materialized: view
     marts:
       +materialized: table
+      # Write model + column descriptions into the warehouse as COMMENTs.
+      +persist_docs:
+        relation: true
+        columns: true

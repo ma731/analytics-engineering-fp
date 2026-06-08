@@ -61,12 +61,80 @@ def city_slug(name: str) -> str:
 
 def city_photo(name: str) -> Path:
     return ASSETS / f"{city_slug(name)}.jpg"
+
+
+def aqi_band_chip(aqi: float):
+    """(label, color) for a European AQI value — matches the dbt aqi_health_bands seed."""
+    if pd.isna(aqi):
+        return ("NO DATA", MUTED)
+    for hi, label, col in [
+        (20, "GOOD", GREEN), (40, "FAIR", "#7DA82B"), (60, "MODERATE", OCHRE),
+        (80, "POOR", TERRACOTTA), (100, "VERY POOR", "#B5341F"),
+    ]:
+        if aqi < hi:
+            return (label, col)
+    return ("EXTREME", "#7F1D1D")
+
+
 CITY_BLURBS = {
     "Madrid": "Gran Vía at golden hour — the capital's restless heart.",
     "Barcelona": "Gaudí's Sagrada Família against the Mediterranean sky.",
     "Valencia": "Calatrava's City of Arts — the future on the Turia.",
-    "Sevilla": "Plaza de España — Andalusian sun and tilework.",
+    "Sevilla": "Flamenco, orange trees and the Giralda's bells.",
     "Bilbao": "The Guggenheim's titanium curves on the Nervión.",
+    "Almería": "Sun-baked Andalusian coast beneath the Alcazaba fortress.",
+    "Cádiz": "Western Europe's oldest city, ringed by Atlantic sea.",
+    "Córdoba": "The Mezquita's arches and Spain's hottest summers.",
+    "Granada": "The Alhambra crowned by the snowy Sierra Nevada.",
+    "Huelva": "Where Columbus set sail, between two tinted rivers.",
+    "Jaén": "An endless silver sea of Andalusian olive groves.",
+    "Málaga": "Picasso's birthplace on the warm Costa del Sol.",
+    "Zaragoza": "The Basilica del Pilar mirrored in the Ebro.",
+    "Huesca": "Pyrenean gateway of medieval lanes and mountain air.",
+    "Teruel": "Mudéjar towers and Spain's star-crossed lovers.",
+    "Oviedo": "Green Asturias of pre-Romanesque churches and cider.",
+    "Palma": "A vast Gothic cathedral above the Balearic blue.",
+    "Las Palmas de Gran Canaria": "Year-round spring on a volcanic Atlantic isle.",
+    "Santa Cruz de Tenerife": "Carnival city beneath Teide's volcanic peak.",
+    "Santander": "Belle Époque elegance on the Cantabrian bay.",
+    "Albacete": "La Mancha's plain, famed for steel and saffron.",
+    "Ciudad Real": "Don Quixote's windmill country on the meseta.",
+    "Cuenca": "Hanging houses clinging to a limestone gorge.",
+    "Guadalajara": "Renaissance palaces at the edge of the meseta.",
+    "Toledo": "The city of three cultures above the Tagus.",
+    "Ávila": "Perfect medieval walls and Saint Teresa's birthplace.",
+    "Burgos": "A soaring Gothic cathedral on the pilgrim road.",
+    "León": "Stained-glass light flooding a Gothic masterpiece.",
+    "Palencia": "Quiet Castilian streets and a hidden cathedral.",
+    "Salamanca": "Golden sandstone and Spain's oldest university.",
+    "Segovia": "A Roman aqueduct and a fairy-tale alcázar.",
+    "Soria": "Poets' country of pine forests and the Duero.",
+    "Valladolid": "Castilian heart of wine, books and Cervantes.",
+    "Zamora": "Romanesque churches above the slow-moving Duero.",
+    "Girona": "Colourful riverside houses and old Jewish-quarter lanes.",
+    "Lleida": "The hilltop Seu Vella over the Catalan plains.",
+    "Tarragona": "Roman ruins meeting the Mediterranean shore.",
+    "Alicante": "Castle-topped Costa Blanca and palm-lined esplanade.",
+    "Castellón de la Plana": "Orange groves between the sea and mountains.",
+    "Badajoz": "A border fortress city on the Portuguese frontier.",
+    "Cáceres": "A perfectly preserved medieval old town in stone.",
+    "A Coruña": "The Roman Tower of Hercules over Atlantic waves.",
+    "Lugo": "The only complete Roman walls still encircling a city.",
+    "Ourense": "Thermal springs steaming beside the Miño river.",
+    "Pontevedra": "Galicia's car-free old town near the rías.",
+    "Logroño": "Tapas and Rioja wine on the Camino's path.",
+    "Murcia": "Baroque cathedral and gardens of a fertile huerta.",
+    "Pamplona": "Hemingway's city of the running of the bulls.",
+    "Donostia-San Sebastián": "La Concha bay, pintxos and Belle Époque grace.",
+    "Vitoria-Gasteiz": "A green Basque capital of medieval almond streets.",
+    "Ceuta": "A Spanish enclave where Europe meets Africa.",
+    "Melilla": "Modernist architecture on the North African coast.",
+    "Vigo": "Galicia's great fishing port on a broad ría.",
+    "Gijón": "Asturian seafront, cider houses and an old quarter.",
+    "Marbella": "Glamour, marinas and sun on the Costa del Sol.",
+    "Cartagena": "A natural harbour layered with Roman and naval history.",
+    "Ibiza": "Whitewashed old town above turquoise Balearic coves.",
+    "Jerez de la Frontera": "Sherry bodegas, flamenco and Andalusian horses.",
 }
 # Official municipal (city hall) websites — shown as a link on each spotlight card.
 # All 58 verified reachable (region TLDs: .es default, .cat Catalonia, .gal Galicia, .eus Euskadi).
@@ -361,6 +429,31 @@ def load_extreme_events() -> pd.DataFrame:
     return get_connection().sql("select * from main.mart_extreme_events").df()
 
 
+@st.cache_data(ttl=600)
+def load_month_summary() -> pd.DataFrame:
+    return get_connection().sql(
+        "select city_name, month_num, month_name, season, total_days, "
+        "avg_temperature_c, total_precipitation_mm, comfortable_days, comfort_score "
+        "from main.mart_city_month_summary"
+    ).df()
+
+
+@st.cache_data(ttl=600)
+def load_anomalies() -> pd.DataFrame:
+    return get_connection().sql(
+        "select city_name, weather_date, season, temperature_2m_mean, "
+        "season_mean_c, anomaly_c, anomaly_z from main.mart_temperature_anomaly"
+    ).df()
+
+
+@st.cache_data(ttl=600)
+def load_forecast() -> pd.DataFrame:
+    return get_connection().sql(
+        "select city_name, forecast_date, forecast_temp_mean, actual_temp_mean, "
+        "abs_temperature_error, abs_precipitation_error from main.fct_forecast_city_day"
+    ).df()
+
+
 # --------------------------------------------------------------------------- #
 # Load
 # --------------------------------------------------------------------------- #
@@ -369,8 +462,12 @@ weather = load_daily_weather()
 aqi = load_daily_aqi()
 season_summary = load_season_summary()
 extreme_events = load_extreme_events()
+month_summary = load_month_summary()
+anomalies = load_anomalies()
+forecast = load_forecast()
 weather["weather_date"] = pd.to_datetime(weather["weather_date"])
 aqi["air_quality_date"] = pd.to_datetime(aqi["air_quality_date"])
+anomalies["weather_date"] = pd.to_datetime(anomalies["weather_date"])
 
 # --------------------------------------------------------------------------- #
 # Sidebar (reference only — the city picker lives up top in the main area)
@@ -510,6 +607,114 @@ def live_status() -> None:
 
 
 live_status()
+
+# --------------------------------------------------------------------------- #
+# Planner — interactive "find your ideal city" recommender (searches all 58)
+# --------------------------------------------------------------------------- #
+section("Plan", "Find your ideal city")
+st.markdown(
+    '<div class="footnote" style="margin:-.35rem 0 .7rem">Set what matters to you — '
+    "we score all 58 cities and name each one's best month to visit. This searches "
+    "every city, independent of the selection above.</div>",
+    unsafe_allow_html=True,
+)
+pc1, pc2, pc3 = st.columns(3)
+with pc1:
+    w_warm = st.slider("Warmth", 0, 5, 3, key="pl_warm")
+    w_comfort = st.slider("Comfort", 0, 5, 5, key="pl_comf")
+with pc2:
+    w_air = st.slider("Clean air", 0, 5, 3, key="pl_air")
+    w_dry = st.slider("Dry weather", 0, 5, 3, key="pl_dry")
+with pc3:
+    w_calm = st.slider("Calm (low wind)", 0, 5, 2, key="pl_calm")
+    season_pref = st.selectbox(
+        "Season", ["Whole year", "Winter", "Spring", "Summer", "Autumn"], key="pl_season"
+    )
+avoid_heat = st.checkbox("Avoid heatwave-prone cities", value=False, key="pl_heat")
+
+plan = summary.copy()
+plan["rainy_ratio"] = plan["rainy_days"] / plan["total_days"].clip(lower=1)
+plan["windy_ratio"] = plan["windy_days"] / plan["total_days"].clip(lower=1)
+if season_pref != "Whole year":
+    sj = season_summary[season_summary["season"] == season_pref][
+        ["city_name", "comfort_score", "avg_temperature_c"]
+    ].rename(columns={"comfort_score": "s_comfort", "avg_temperature_c": "s_temp"})
+    plan = plan.merge(sj, on="city_name", how="left")
+    plan["use_comfort"] = plan["s_comfort"].fillna(plan["comfort_score"])
+    plan["use_temp"] = plan["s_temp"].fillna(plan["avg_temperature_c"])
+else:
+    plan["use_comfort"] = plan["comfort_score"]
+    plan["use_temp"] = plan["avg_temperature_c"]
+
+
+def _norm(s, invert=False):
+    s = s.astype(float)
+    lo, hi = s.min(), s.max()
+    z = (s - lo) / (hi - lo) * 100 if hi > lo else s * 0 + 50
+    return 100 - z if invert else z
+
+
+plan["n_warm"] = _norm(plan["use_temp"])
+plan["n_comfort"] = plan["use_comfort"].clip(0, 100)
+plan["n_air"] = _norm(
+    plan["avg_air_quality_index"].fillna(plan["avg_air_quality_index"].median()), invert=True
+)
+plan["n_dry"] = _norm(plan["rainy_ratio"], invert=True)
+plan["n_calm"] = _norm(plan["windy_ratio"], invert=True)
+_wts = {"n_warm": w_warm, "n_comfort": w_comfort, "n_air": w_air, "n_dry": w_dry, "n_calm": w_calm}
+_wsum = sum(_wts.values()) or 1
+plan["match"] = sum(plan[k] * v for k, v in _wts.items()) / _wsum
+if avoid_heat:
+    plan = plan.merge(extreme_events[["city_name", "heatwave_days"]], on="city_name", how="left")
+    plan["match"] = plan["match"] - _norm(plan["heatwave_days"].fillna(0)) * 0.35
+plan["match"] = plan["match"].clip(0, 100)
+_bm = (
+    month_summary.sort_values("comfort_score", ascending=False)
+    .drop_duplicates("city_name")[["city_name", "month_name"]]
+    .rename(columns={"month_name": "best_month"})
+)
+plan = plan.merge(_bm, on="city_name", how="left").sort_values("match", ascending=False).reset_index(drop=True)
+
+_MED = {0: "#DAA144", 1: "#C9C9C2", 2: "#C0845A"}
+plan_cards = []
+for i, r in plan.head(5).iterrows():
+    band, bcol = aqi_band_chip(r["avg_air_quality_index"])
+    best = r["best_month"] if pd.notna(r["best_month"]) else "—"
+    plan_cards.append(
+        f'<div class="plancard" style="border-top:6px solid {_MED.get(i, INK)}">'
+        f'<div class="planrank">#{i + 1}</div>'
+        f'<div class="plancity">{r["city_name"]}</div>'
+        f'<div class="planmatch">{r["match"]:.0f}<span>/100 match</span></div>'
+        f'<div class="planbest">best month · <b>{best}</b></div>'
+        f'<div class="planchips"><span class="planchip">{r["use_temp"]:.0f}° avg</span>'
+        f'<span class="planchip">comfort {r["use_comfort"]:.0f}</span>'
+        f'<span class="planchip" style="border-color:{bcol};color:{bcol}">{band}</span></div></div>'
+    )
+st.markdown(
+    """<style>
+    .plangrid{display:grid;grid-template-columns:repeat(5,1fr);gap:.6rem;}
+    .plancard{background:#fff;border:2px solid #111827;padding:.7rem;transition:transform .15s;}
+    .plancard:hover{transform:translateY(-3px);box-shadow:5px 5px 0 #111827;}
+    .planrank{font-family:'JetBrains Mono',monospace;font-size:.66rem;font-weight:800;color:#6B7280;}
+    .plancity{font-family:'Darker Grotesque','JetBrains Mono',monospace;font-size:1.3rem;font-weight:800;line-height:1.02;color:#111827;}
+    .planmatch{font-family:'Darker Grotesque','JetBrains Mono',monospace;font-size:2.1rem;font-weight:800;line-height:1;color:#111827;}
+    .planmatch span{font-size:.58rem;font-weight:700;color:#6B7280;}
+    .planbest{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:#111827;margin:.25rem 0;}
+    .planchips{display:flex;flex-wrap:wrap;gap:.25rem;margin-top:.3rem;}
+    .planchip{font-family:'JetBrains Mono',monospace;font-size:.58rem;font-weight:700;border:2px solid #111827;padding:.12rem .3rem;color:#111827;}
+    @media (max-width:900px){.plangrid{grid-template-columns:repeat(2,1fr);}}
+    </style>"""
+    + f'<div class="plangrid">{"".join(plan_cards)}</div>',
+    unsafe_allow_html=True,
+)
+_winner = plan.iloc[0]
+st.caption(
+    f"Your top match: {_winner['city_name']} (score {_winner['match']:.0f}/100), "
+    f"best around {_winner['best_month']}. "
+    + ("Heatwave-prone cities penalised. " if avoid_heat else "")
+    + (f"Comfort & warmth use {season_pref} values." if season_pref != "Whole year"
+       else "Using whole-year values.")
+)
 
 # --------------------------------------------------------------------------- #
 # City spotlight — auto-rotating cinematic carousel with real city photos
@@ -896,20 +1101,6 @@ st.caption(
 # --------------------------------------------------------------------------- #
 section("Reference", "City comfort table")
 
-
-def aqi_band_chip(aqi: float):
-    """Return (label, color) for a European AQI value, matching the dbt seed bands."""
-    if pd.isna(aqi):
-        return ("NO DATA", MUTED)
-    for hi, label, col in [
-        (20, "GOOD", GREEN), (40, "FAIR", "#7DA82B"), (60, "MODERATE", OCHRE),
-        (80, "POOR", TERRACOTTA), (100, "VERY POOR", "#B5341F"),
-    ]:
-        if aqi < hi:
-            return (label, col)
-    return ("EXTREME", "#7F1D1D")
-
-
 SORT_OPTS = {
     "Overall index": ("overall_comfort_index", False),
     "Comfort score": ("comfort_score", False),
@@ -1001,6 +1192,122 @@ with st.expander("METRIC DEFINITIONS"):
         - **European AQI** — lower is better. Radar axes are normalised 0–100 across the selection.
         """
     )
+
+# --------------------------------------------------------------------------- #
+# Anomalies — how unusual each day was vs the city's seasonal normal
+# --------------------------------------------------------------------------- #
+section("Anomalies", "Unusually warm & cold days")
+an = anomalies[
+    anomalies["city_name"].isin(selected_cities)
+    & anomalies["weather_date"].between(start_date, end_date)
+].copy()
+an_l, an_r = st.columns([1.3, 1])
+with an_l:
+    if not an.empty:
+        fig_an = px.scatter(
+            an, x="weather_date", y="anomaly_c", color="city_name",
+            color_discrete_sequence=CITY_COLORS,
+            labels={"weather_date": "", "anomaly_c": "Δ°C vs seasonal normal", "city_name": ""},
+        )
+        fig_an.add_hline(y=0, line_dash="dot", line_color=INK)
+        fig_an.update_traces(marker=dict(size=5, opacity=0.7))
+        fig_an.update_layout(legend=dict(orientation="h", y=1.06, x=0))
+        st.plotly_chart(style_fig(fig_an, height=340), width="stretch")
+with an_r:
+    if not an.empty:
+        unusual = an.reindex(an["anomaly_z"].abs().sort_values(ascending=False).index).head(6)
+        rows = []
+        for _, r in unusual.iterrows():
+            col = TERRACOTTA if r["anomaly_c"] > 0 else COBALT
+            sign = "+" if r["anomaly_c"] > 0 else ""
+            rows.append(
+                f'<div class="anrow"><span class="ancity">{r["city_name"]}</span>'
+                f'<span class="andate">{r["weather_date"]:%d %b %Y}</span>'
+                f'<span class="anval" style="color:{col}">{sign}{r["anomaly_c"]:.1f}°C '
+                f'<small>z={r["anomaly_z"]:.1f}</small></span></div>'
+            )
+        st.markdown(
+            """<style>
+            .anrow{display:grid;grid-template-columns:1.2fr 1fr .9fr;align-items:center;gap:.4rem;
+              padding:.4rem .6rem;border:2px solid #111827;margin-bottom:.35rem;background:#fff;}
+            .ancity{font-family:'Darker Grotesque','JetBrains Mono',monospace;font-weight:800;font-size:1rem;color:#111827;}
+            .andate{font-family:'JetBrains Mono',monospace;font-size:.66rem;color:#6B7280;}
+            .anval{font-family:'JetBrains Mono',monospace;font-weight:800;font-size:.82rem;text-align:right;}
+            .anval small{font-weight:700;font-size:.6rem;color:#6B7280;}
+            </style><div class="anlist"><div class="footnote" style="margin-bottom:.4rem">MOST UNUSUAL DAYS IN VIEW</div>"""
+            + "".join(rows) + "</div>",
+            unsafe_allow_html=True,
+        )
+st.caption(
+    "Each day's mean temperature vs its city's average for the same meteorological season "
+    "(z = standard deviations from normal). From mart_temperature_anomaly (window functions)."
+)
+
+# --------------------------------------------------------------------------- #
+# Forecast accuracy — forecast vs observed, from the incremental forecast fact
+# --------------------------------------------------------------------------- #
+section("Forecast", "Forecast vs actual accuracy")
+fc = forecast[forecast["city_name"].isin(selected_cities)].copy()
+if not fc.empty and fc["abs_temperature_error"].notna().any():
+    mae = (
+        fc.dropna(subset=["abs_temperature_error"])
+        .groupby("city_name")["abs_temperature_error"].mean().reset_index()
+        .sort_values("abs_temperature_error")
+    )
+    fig_fc = px.bar(
+        mae, x="city_name", y="abs_temperature_error",
+        labels={"city_name": "", "abs_temperature_error": "Mean abs. temp error (°C)"},
+        color_discrete_sequence=[COBALT],
+    )
+    st.plotly_chart(style_fig(fig_fc, height=300, bars=True), width="stretch")
+    st.caption(
+        f"Mean absolute error between the forecast and the observed temperature over "
+        f"{len(fc)} overlap day(s). From the INCREMENTAL fct_forecast_city_day — running the "
+        f"extractor on a schedule accumulates more snapshots and sharpens this view."
+    )
+else:
+    st.caption(
+        "The forecast-vs-actual overlap accumulates as the extractor runs on a schedule "
+        "(fct_forecast_city_day is incremental, keyed on the extraction timestamp)."
+    )
+
+# --------------------------------------------------------------------------- #
+# Pipeline — data quality, provenance & lineage (a "trust" panel)
+# --------------------------------------------------------------------------- #
+section("Pipeline", "Data quality & lineage")
+dq = [
+    ("CITIES", f"{len(summary)}", "Spanish cities"),
+    ("CITY-DAYS", f"{len(weather):,}", "daily weather rows"),
+    ("MART MODELS", "9", "dim + facts + summaries"),
+    ("LATEST OBS.", f"{weather['weather_date'].max():%d %b %Y}", "most recent day"),
+]
+dq_html = "".join(
+    f'<div class="dqcard"><div class="dqk">{k}</div><div class="dqv">{v}</div>'
+    f'<div class="dqs">{s}</div></div>'
+    for k, v, s in dq
+)
+lineage = " &rarr; ".join([
+    "OPEN-METEO APIS", "STAGING (4)", "INTERMEDIATE (4)", "MARTS (9)", "THIS DASHBOARD",
+])
+st.markdown(
+    """<style>
+    .dqgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:.6rem;margin-bottom:.7rem;}
+    .dqcard{background:#fff;border:2px solid #111827;padding:.7rem .8rem;}
+    .dqk{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.08em;color:#6B7280;font-weight:700;}
+    .dqv{font-family:'Darker Grotesque','JetBrains Mono',monospace;font-size:2rem;font-weight:800;line-height:1.05;color:#111827;}
+    .dqs{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:#6B7280;}
+    .dqlin{font-family:'JetBrains Mono',monospace;font-size:.66rem;font-weight:700;color:#111827;
+      border:2px solid #111827;background:#FBFAF6;padding:.5rem .7rem;letter-spacing:.04em;}
+    @media (max-width:900px){.dqgrid{grid-template-columns:repeat(2,1fr);}}
+    </style>"""
+    + f'<div class="dqgrid">{dq_html}</div><div class="dqlin">{lineage}</div>',
+    unsafe_allow_html=True,
+)
+st.caption(
+    "Reads only from the dbt mart models, never the raw files. The pipeline ships 3 dbt unit "
+    "tests, enforced model contracts, and a full data-test suite. Weather is real Open-Meteo "
+    "Archive-API data — spot-verified against the live API."
+)
 
 st.markdown(
     f"""<div class="footer footnote">

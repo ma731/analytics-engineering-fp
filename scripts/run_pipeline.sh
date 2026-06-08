@@ -8,8 +8,7 @@ export DBT_PROFILES_DIR="$PWD"
 
 if [ "${1:-}" != "--skip-extract" ]; then
     echo ">> Extracting from Open-Meteo..."
-    python scripts/extract_open_meteo.py \
-        --cities Madrid Barcelona Valencia Sevilla Bilbao
+    python scripts/extract_open_meteo.py
 fi
 
 echo ">> Loading CSVs into DuckDB..."

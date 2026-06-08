@@ -1,7 +1,9 @@
 """City Comfort Index — Open-Meteo weather analytics dashboard.
 
-Premium dark neo-brutalist design: gauge KPIs, an animated live scatter,
-a gradient area trend, a radar comparison, and a dark glowing map.
+Light "brutalist website" design: white canvas, terracotta hero, thick ink
+borders, hard offset shadows, Darker Grotesque + JetBrains Mono. Combines the
+clean brutalist skin with modern, live data visualizations (gauges, an animated
+play-button scatter, a radar, a heatmap, a pulsing live bar).
 
 Reads from the dbt mart models in DuckDB (not the raw API files):
     - mart_city_weather_summary  (one row per city)
@@ -9,7 +11,7 @@ Reads from the dbt mart models in DuckDB (not the raw API files):
     - fct_air_quality_city_day   (one row per city per day)
 
 Run from the project root:
-    streamlit run streamlit_app/app.py
+    python -m streamlit run streamlit_app/app.py
 """
 
 from __future__ import annotations
@@ -29,23 +31,22 @@ import streamlit as st
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DB_PATH = PROJECT_ROOT / "data" / "weather_analytics.duckdb"
 
-# Dark neo-brutalist palette
-BG = "#0B0B0F"
-PANEL = "#16161D"
-BORDER = "#2E2E3A"
-TEXT = "#F4F4F5"
-MUTED = "#A1A1AA"
-TERRACOTTA = "#FF6B4A"
-OCHRE = "#E0A436"
-GREEN = "#34D399"
-CYAN = "#22D3EE"
-ROSE = "#F43F5E"
-AMBER = "#FBBF24"
+# Light brutalist palette
+INK = "#111827"
+PAPER = "#FFFFFF"
+CREAM = "#FBFAF6"
+TERRACOTTA = "#DD614C"
+OCHRE = "#DAA144"
+GREEN = "#16A34A"
+COBALT = "#2563EB"
+VIOLET = "#7C3AED"
+DANGER = "#DC2626"
+MUTED = "#6B7280"
 
-CITY_COLORS = [TERRACOTTA, CYAN, OCHRE, GREEN, "#A78BFA"]
-COMFORT_SCALE = [ROSE, TERRACOTTA, AMBER, GREEN]   # low -> high (good)
-AQI_SCALE = [GREEN, AMBER, TERRACOTTA, ROSE]       # low (good) -> high (bad)
-HEAT_SCALE = ["#1E3A8A", CYAN, GREEN, AMBER, TERRACOTTA]  # cold -> hot
+CITY_COLORS = [TERRACOTTA, COBALT, OCHRE, GREEN, VIOLET]
+COMFORT_SCALE = [DANGER, TERRACOTTA, OCHRE, GREEN]   # low -> high (good)
+AQI_SCALE = [GREEN, OCHRE, TERRACOTTA, DANGER]       # low (good) -> high (bad)
+HEAT_SCALE = ["#1E3A8A", COBALT, GREEN, OCHRE, TERRACOTTA]  # cold -> hot
 
 st.set_page_config(
     page_title="City Comfort Index",
@@ -56,65 +57,80 @@ st.set_page_config(
 
 
 # --------------------------------------------------------------------------- #
-# Styling
+# Styling — brutalist website skin
 # --------------------------------------------------------------------------- #
 st.markdown(
     f"""
     <style>
       @import url('https://fonts.googleapis.com/css2?family=Darker+Grotesque:wght@600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
 
-      html, body, [class*="css"] {{ font-family: 'JetBrains Mono', monospace; }}
-      .stApp {{ background:
-          radial-gradient(1200px 500px at 80% -10%, rgba(255,107,74,.10), transparent 60%),
-          radial-gradient(900px 500px at 0% 0%, rgba(34,211,238,.08), transparent 55%),
-          {BG}; }}
+      html, body, [class*="css"] {{ font-family: 'JetBrains Mono', monospace; color: {INK}; }}
+      .stApp {{ background: {PAPER}; }}
       h1, h2, h3, h4 {{
         font-family: 'Darker Grotesque', sans-serif !important;
         font-weight: 900 !important; letter-spacing: -0.01em;
-        text-transform: uppercase; color: {TEXT};
+        text-transform: uppercase; color: {INK};
       }}
-      .block-container {{ padding-top: 1.6rem; padding-bottom: 3rem; max-width: 1340px; }}
+      .block-container {{ padding-top: 1.4rem; padding-bottom: 3rem; max-width: 1340px; }}
+
+      /* Top bar (site header) */
+      .topbar {{
+        display: flex; align-items: center; justify-content: space-between;
+        gap: 1rem; flex-wrap: wrap; border-bottom: 3px solid {INK};
+        padding-bottom: .6rem; margin-bottom: 1.1rem;
+      }}
+      .wordmark {{ font-family: 'Darker Grotesque', sans-serif; font-weight: 900;
+        font-size: 1.35rem; text-transform: uppercase; letter-spacing: -.01em; }}
+      .wordmark .sq {{ display:inline-block; width:14px; height:14px; background:{TERRACOTTA};
+        border:2px solid {INK}; margin-right:.5rem; transform: translateY(1px); }}
 
       /* Hero */
       .hero {{
-        background: linear-gradient(120deg, {TERRACOTTA} 0%, #C2410C 100%);
-        color: #fff; padding: 1.3rem 1.7rem; border: 1px solid rgba(255,255,255,.18);
-        box-shadow: 0 18px 50px -20px rgba(255,107,74,.7);
-        display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+        background: {TERRACOTTA}; color: #fff; padding: 1.5rem 1.9rem;
+        border: 4px solid {INK}; box-shadow: 10px 10px 0 {INK}; margin-bottom: 1.8rem;
       }}
-      .hero h1 {{ margin: 0; font-size: 2.7rem; line-height: .9; color: #fff !important; }}
-      .hero p {{ margin: .35rem 0 0; font-size: .82rem; font-weight: 500; opacity: .95; max-width: 640px; }}
+      .hero h1 {{ margin: 0; font-size: 3rem; line-height: .9; color: #fff !important; }}
+      .hero p {{ margin: .5rem 0 0; font-family: 'JetBrains Mono', monospace;
+        font-size: .82rem; font-weight: 600; max-width: 720px; }}
 
-      /* LIVE badge */
-      .live {{
-        display: inline-flex; align-items: center; gap: .5rem; white-space: nowrap;
-        background: rgba(0,0,0,.28); border: 1px solid rgba(255,255,255,.35);
-        padding: .35rem .7rem; font-size: .72rem; font-weight: 700; letter-spacing: .08em;
-      }}
-      .dot {{ width: 9px; height: 9px; border-radius: 50%; background: #d1fae5;
-        box-shadow: 0 0 0 0 rgba(209,250,229,.9); animation: pulse 1.6s infinite; }}
+      /* Live chips */
+      .chips {{ display: flex; gap: .5rem; flex-wrap: wrap; }}
+      .chip {{ display:inline-flex; align-items:center; gap:.45rem; white-space:nowrap;
+        background:{PAPER}; border:2px solid {INK}; padding:.3rem .6rem;
+        font-size:.7rem; font-weight:700; letter-spacing:.05em; }}
+      .chip.muted {{ color:{MUTED}; }}
+      .dot {{ width:9px; height:9px; border-radius:50%; background:{TERRACOTTA};
+        box-shadow:0 0 0 0 rgba(221,97,76,.7); animation:pulse 1.6s infinite; }}
       @keyframes pulse {{
-        0% {{ box-shadow: 0 0 0 0 rgba(209,250,229,.8); }}
-        70% {{ box-shadow: 0 0 0 9px rgba(209,250,229,0); }}
-        100% {{ box-shadow: 0 0 0 0 rgba(209,250,229,0); }}
+        0% {{ box-shadow:0 0 0 0 rgba(221,97,76,.7); }}
+        70% {{ box-shadow:0 0 0 8px rgba(221,97,76,0); }}
+        100% {{ box-shadow:0 0 0 0 rgba(221,97,76,0); }}
       }}
 
-      h2, h3 {{ border-bottom: 2px solid {BORDER}; padding-bottom: .2rem; margin-top: .4rem; }}
+      /* Section eyebrow + header */
+      .eyebrow {{ font-family:'JetBrains Mono',monospace; font-size:.7rem; font-weight:700;
+        letter-spacing:.18em; color:{TERRACOTTA}; text-transform:uppercase; margin-top:.6rem; }}
+      h2, h3 {{ border-bottom: 3px solid {INK}; padding-bottom: .15rem; }}
 
+      /* Metric cards */
       div[data-testid="stMetric"] {{
-        background: {PANEL}; border: 1px solid {BORDER};
-        border-left: 4px solid {TERRACOTTA}; padding: .8rem 1rem;
+        background:{PAPER}; border:3px solid {INK}; padding:.85rem 1rem;
+        box-shadow:6px 6px 0 {INK};
       }}
-      div[data-testid="stMetricValue"] {{ font-family: 'Darker Grotesque', sans-serif; font-weight: 900; }}
+      div[data-testid="stMetricLabel"] p {{ font-weight:700; text-transform:uppercase;
+        font-size:.72rem; letter-spacing:.04em; color:{INK}; }}
+      div[data-testid="stMetricValue"] {{ font-family:'Darker Grotesque',sans-serif; font-weight:900; }}
 
+      /* Framed charts + table */
       div[data-testid="stPlotlyChart"] {{
-        border: 1px solid {BORDER}; background: {PANEL};
-        padding: .55rem; box-shadow: 0 10px 30px -18px rgba(0,0,0,.9);
+        border:3px solid {INK}; background:{PAPER}; padding:.55rem; box-shadow:6px 6px 0 {INK};
       }}
-      div[data-testid="stDataFrame"] {{ border: 1px solid {BORDER}; }}
-      section[data-testid="stSidebar"] {{ background: #0E0E14; border-right: 1px solid {BORDER}; }}
-      .footnote {{ font-family: 'JetBrains Mono', monospace; color: {MUTED}; font-size: .76rem; line-height: 1.55; }}
-      * {{ border-radius: 0 !important; }}
+      div[data-testid="stDataFrame"] {{ border:3px solid {INK}; box-shadow:6px 6px 0 {INK}; }}
+
+      section[data-testid="stSidebar"] {{ background:{CREAM}; border-right:3px solid {INK}; }}
+      .footnote {{ font-family:'JetBrains Mono',monospace; color:{MUTED}; font-size:.76rem; line-height:1.55; }}
+      .footer {{ border-top:3px solid {INK}; margin-top:2rem; padding-top:.8rem; }}
+      * {{ border-radius:0 !important; }}
     </style>
     """,
     unsafe_allow_html=True,
@@ -122,7 +138,6 @@ st.markdown(
 
 
 def _rgba(hex_color: str, alpha: float) -> str:
-    """Convert a #RRGGBB hex string to an rgba() string with the given alpha."""
     h = hex_color.lstrip("#")
     r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
     return f"rgba({r},{g},{b},{alpha})"
@@ -130,8 +145,8 @@ def _rgba(hex_color: str, alpha: float) -> str:
 
 def style_fig(fig: go.Figure, height: int = 340, bars: bool = False) -> go.Figure:
     fig.update_layout(
-        template="plotly_dark",
-        font=dict(family="JetBrains Mono, monospace", size=12, color=TEXT),
+        template="plotly_white",
+        font=dict(family="JetBrains Mono, monospace", size=12, color=INK),
         height=height,
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
@@ -139,13 +154,16 @@ def style_fig(fig: go.Figure, height: int = 340, bars: bool = False) -> go.Figur
         legend=dict(font=dict(size=11), bgcolor="rgba(0,0,0,0)"),
         colorway=CITY_COLORS,
     )
-    fig.update_xaxes(showline=True, linewidth=1, linecolor=BORDER,
-                     gridcolor="#20202A", zeroline=False)
-    fig.update_yaxes(showline=True, linewidth=1, linecolor=BORDER,
-                     gridcolor="#20202A", zeroline=False)
+    fig.update_xaxes(showline=True, linewidth=2, linecolor=INK, gridcolor="#ECEAE2", zeroline=False)
+    fig.update_yaxes(showline=True, linewidth=2, linecolor=INK, gridcolor="#ECEAE2", zeroline=False)
     if bars:
-        fig.update_traces(marker_line_color="rgba(255,255,255,.25)", marker_line_width=1)
+        fig.update_traces(marker_line_color=INK, marker_line_width=1.2)
     return fig
+
+
+def section(eyebrow: str, title: str) -> None:
+    st.markdown(f'<div class="eyebrow">{eyebrow}</div>', unsafe_allow_html=True)
+    st.subheader(title)
 
 
 # --------------------------------------------------------------------------- #
@@ -196,13 +214,15 @@ aqi = load_daily_aqi()
 weather["weather_date"] = pd.to_datetime(weather["weather_date"])
 aqi["air_quality_date"] = pd.to_datetime(aqi["air_quality_date"])
 
-
 # --------------------------------------------------------------------------- #
 # Sidebar filters
 # --------------------------------------------------------------------------- #
 st.sidebar.header("Filters")
 all_cities = sorted(summary["city_name"].tolist())
-selected_cities = st.sidebar.multiselect("Cities", options=all_cities, default=all_cities)
+MAJOR_CITIES = ["Madrid", "Barcelona", "Valencia", "Sevilla", "Bilbao"]
+default_cities = [c for c in MAJOR_CITIES if c in all_cities] or all_cities
+selected_cities = st.sidebar.multiselect("Cities", options=all_cities, default=default_cities)
+st.sidebar.caption(f"{len(all_cities)} cities available · {len(default_cities)} shown by default")
 if not selected_cities:
     st.warning("Select at least one city to see the dashboard.")
     st.stop()
@@ -249,7 +269,6 @@ if w.empty:
     st.warning("No data in the selected range. Widen the date filter.")
     st.stop()
 
-# Comfort ranking recomputed over the filtered window
 ranking = (
     w.groupby("city_name")
     .agg(
@@ -272,16 +291,19 @@ ranking = ranking.sort_values("overall_comfort_index", ascending=False)
 best_city = ranking.iloc[0]
 
 # --------------------------------------------------------------------------- #
-# Hero + live status (the live status fragment refreshes every 2s)
+# Top bar + hero
 # --------------------------------------------------------------------------- #
+st.markdown(
+    '<div class="topbar"><div class="wordmark"><span class="sq"></span>CITY COMFORT INDEX</div>'
+    '<div class="chip muted">OPEN-METEO · DBT · DUCKDB</div></div>',
+    unsafe_allow_html=True,
+)
 st.markdown(
     """
     <div class="hero">
-      <div>
-        <h1>City Comfort Index</h1>
-        <p>HOW PLEASANT IS THE WEATHER ACROSS SPAIN'S LARGEST CITIES? A LIVE COMFORT,
-        CLIMATE AND AIR-QUALITY VIEW BUILT ON OPEN-METEO DATA.</p>
-      </div>
+      <h1>City Comfort Index</h1>
+      <p>HOW PLEASANT IS THE WEATHER ACROSS SPAIN'S LARGEST CITIES? A LIVE COMFORT,
+      CLIMATE AND AIR-QUALITY VIEW BUILT ON OPEN-METEO DATA — STRAIGHT FROM THE DBT MARTS.</p>
     </div>
     """,
     unsafe_allow_html=True,
@@ -294,13 +316,11 @@ def live_status() -> None:
     span = f"{start_date:%d %b} – {end_date:%d %b}"
     st.markdown(
         f"""
-        <div style="display:flex;gap:.6rem;flex-wrap:wrap;margin:.7rem 0 .2rem">
-          <span class="live"><span class="dot"></span>LIVE · {now}</span>
-          <span class="live" style="border-color:{BORDER};color:{MUTED}">
-            MONITORING {len(selected_cities)} CITIES</span>
-          <span class="live" style="border-color:{BORDER};color:{MUTED}">WINDOW {span}</span>
-          <span class="live" style="border-color:{BORDER};color:{MUTED}">
-            {len(w):,} CITY-DAYS</span>
+        <div class="chips" style="margin:-0.6rem 0 1.2rem">
+          <span class="chip"><span class="dot"></span>LIVE · {now}</span>
+          <span class="chip muted">MONITORING {len(selected_cities)} CITIES</span>
+          <span class="chip muted">WINDOW {span}</span>
+          <span class="chip muted">{len(w):,} CITY-DAYS</span>
         </div>
         """,
         unsafe_allow_html=True,
@@ -309,101 +329,88 @@ def live_status() -> None:
 
 live_status()
 
+# --------------------------------------------------------------------------- #
+# KPI cards
+# --------------------------------------------------------------------------- #
+k1, k2, k3, k4 = st.columns(4)
+k1.metric("Cities in view", len(selected_cities))
+k2.metric("Avg temperature", f"{w['temperature_2m_mean'].mean():.1f} °C")
+k3.metric("Comfortable days", int(ranking["comfortable_days"].sum()),
+          help="Mean temp 18–26 °C and not rainy, windy, hot or freezing.")
+k4.metric("Most comfortable", best_city["city_name"],
+          f"index {best_city['overall_comfort_index']:.1f}")
+
+st.markdown("")
+
 
 # --------------------------------------------------------------------------- #
-# KPI gauges
+# Gauges
 # --------------------------------------------------------------------------- #
 def gauge(value, title, vmin, vmax, steps, bar_color, suffix=""):
     fig = go.Figure(go.Indicator(
         mode="gauge+number",
         value=round(float(value), 1),
-        number={"suffix": suffix, "font": {"family": "JetBrains Mono", "size": 30}},
-        title={"text": title, "font": {"family": "Darker Grotesque", "size": 20}},
+        number={"suffix": suffix, "font": {"family": "JetBrains Mono", "size": 28, "color": INK}},
+        title={"text": title, "font": {"family": "Darker Grotesque", "size": 20, "color": INK}},
         gauge={
-            "axis": {"range": [vmin, vmax], "tickcolor": MUTED},
-            "bar": {"color": bar_color, "thickness": 0.28},
+            "axis": {"range": [vmin, vmax], "tickcolor": MUTED, "tickfont": {"size": 9}},
+            "bar": {"color": bar_color, "thickness": 0.3},
             "bgcolor": "rgba(0,0,0,0)",
-            "borderwidth": 0,
+            "bordercolor": INK, "borderwidth": 2,
             "steps": steps,
         },
     ))
-    fig.update_layout(
-        height=210, margin=dict(l=18, r=18, t=42, b=6),
-        paper_bgcolor="rgba(0,0,0,0)", font=dict(color=TEXT, family="JetBrains Mono"),
-    )
+    fig.update_layout(height=205, margin=dict(l=18, r=18, t=40, b=6),
+                      paper_bgcolor="rgba(0,0,0,0)", font=dict(color=INK))
     return fig
 
 
+section("Instruments", "At a glance")
 g1, g2, g3 = st.columns(3)
 with g1:
     st.plotly_chart(gauge(
         ranking["overall_comfort_index"].mean(), "OVERALL COMFORT", -20, 40,
-        [{"range": [-20, 0], "color": "#3b1d22"}, {"range": [0, 20], "color": "#3a3320"},
-         {"range": [20, 40], "color": "#163a2c"}], TERRACOTTA), width="stretch")
+        [{"range": [-20, 0], "color": "#fde8e4"}, {"range": [0, 20], "color": "#fbf3dd"},
+         {"range": [20, 40], "color": "#e3f5ea"}], TERRACOTTA), width="stretch")
 with g2:
     st.plotly_chart(gauge(
         w["temperature_2m_mean"].mean(), "AVG TEMPERATURE", 0, 40,
-        [{"range": [0, 18], "color": "#16304a"}, {"range": [18, 26], "color": "#163a2c"},
-         {"range": [26, 40], "color": "#3b1d22"}], CYAN, " °C"), width="stretch")
+        [{"range": [0, 18], "color": "#e6eefb"}, {"range": [18, 26], "color": "#e3f5ea"},
+         {"range": [26, 40], "color": "#fde8e4"}], COBALT, " °C"), width="stretch")
 with g3:
     aqi_mean = a["avg_european_aqi"].mean() if not a.empty else 0
     st.plotly_chart(gauge(
         aqi_mean, "AIR QUALITY (AQI)", 0, 100,
-        [{"range": [0, 25], "color": "#163a2c"}, {"range": [25, 50], "color": "#3a3320"},
-         {"range": [50, 100], "color": "#3b1d22"}], GREEN), width="stretch")
+        [{"range": [0, 25], "color": "#e3f5ea"}, {"range": [25, 50], "color": "#fbf3dd"},
+         {"range": [50, 100], "color": "#fde8e4"}], GREEN), width="stretch")
 
 
 # --------------------------------------------------------------------------- #
-# Animated "live" scatter: temperature vs air quality over time
+# Overview: ranking + map
 # --------------------------------------------------------------------------- #
-st.subheader("Temperature × air quality over time ▶")
-anim = w.merge(
-    a.rename(columns={"air_quality_date": "weather_date"}),
-    on=["city_name", "weather_date"], how="inner",
-)
-if not anim.empty:
-    anim = anim.sort_values("weather_date")
-    anim["day"] = anim["weather_date"].dt.strftime("%d %b")
-    anim["precip_size"] = anim["precipitation_sum"].clip(lower=0) + 2
-    fig_anim = px.scatter(
-        anim, x="temperature_2m_mean", y="avg_european_aqi",
-        animation_frame="day", animation_group="city_name",
-        color="city_name", size="precip_size", size_max=34,
-        color_discrete_sequence=CITY_COLORS, text="city_name",
-        range_x=[anim["temperature_2m_mean"].min() - 2, anim["temperature_2m_mean"].max() + 2],
-        range_y=[max(0, anim["avg_european_aqi"].min() - 8), anim["avg_european_aqi"].max() + 8],
-        labels={"temperature_2m_mean": "Mean temp (°C)", "avg_european_aqi": "European AQI",
-                "city_name": "City"},
-    )
-    fig_anim.update_traces(textposition="top center",
-                           textfont=dict(size=10, color=MUTED))
-    fig_anim.update_layout(transition={"duration": 300})
-    st.plotly_chart(style_fig(fig_anim, height=440), width="stretch")
-    st.caption("Press ▶ to watch each city drift through the period. Bubble size = daily precipitation.")
-else:
-    st.info("No overlapping weather + air-quality days in range.")
-
-
-# --------------------------------------------------------------------------- #
-# Ranking + map
-# --------------------------------------------------------------------------- #
-left, right = st.columns([1.05, 1])
-with left:
-    st.subheader("Comfort ranking")
+section("Overview", "Comfort ranking & map")
+o_left, o_right = st.columns([1.05, 1])
+with o_left:
+    # With many cities, focus the bar chart on the best + worst performers.
+    if len(ranking) > 16:
+        rank_plot = pd.concat([ranking.head(10), ranking.tail(5)])
+        rank_note = f"Top 10 and bottom 5 of {len(ranking)} cities."
+    else:
+        rank_plot = ranking
+        rank_note = None
+    rank_height = max(320, 26 * len(rank_plot))
     fig_rank = px.bar(
-        ranking, x="overall_comfort_index", y="city_name", orientation="h",
+        rank_plot, x="overall_comfort_index", y="city_name", orientation="h",
         color="overall_comfort_index", color_continuous_scale=COMFORT_SCALE,
         text="overall_comfort_index",
         labels={"overall_comfort_index": "Overall comfort index", "city_name": ""},
     )
-    fig_rank.update_traces(textposition="outside", cliponaxis=False,
-                           textfont=dict(color=TEXT))
-    fig_rank.update_layout(coloraxis_showscale=False,
-                           yaxis={"categoryorder": "total ascending"})
-    st.plotly_chart(style_fig(fig_rank, bars=True), width="stretch")
-
-with right:
-    st.subheader("Where they are")
+    fig_rank.update_traces(textposition="outside", cliponaxis=False, textfont=dict(color=INK))
+    fig_rank.update_layout(coloraxis_showscale=False, yaxis={"categoryorder": "total ascending"})
+    st.plotly_chart(style_fig(fig_rank, height=rank_height, bars=True), width="stretch")
+    if rank_note:
+        st.caption(rank_note)
+with o_right:
     map_df = s.copy()
     map_df["size"] = map_df["population"].clip(lower=1).pow(0.5)
     fig_map = px.scatter_mapbox(
@@ -413,80 +420,102 @@ with right:
         hover_data={"latitude": False, "longitude": False, "size": False,
                     "overall_comfort_index": True, "avg_temperature_c": True},
     )
-    fig_map.update_layout(
-        mapbox_style="carto-darkmatter", height=340,
-        margin=dict(l=0, r=0, t=30, b=0), paper_bgcolor="rgba(0,0,0,0)",
-        font=dict(color=TEXT, family="JetBrains Mono"),
-        coloraxis_colorbar=dict(title="COMFORT"),
-    )
+    fig_map.update_layout(mapbox_style="carto-positron", height=340,
+                          margin=dict(l=0, r=0, t=30, b=0), paper_bgcolor="rgba(0,0,0,0)",
+                          font=dict(color=INK), coloraxis_colorbar=dict(title="COMFORT"))
     st.plotly_chart(fig_map, width="stretch")
 
 
 # --------------------------------------------------------------------------- #
-# Gradient area trend + radar
+# Live explorer: animated scatter
 # --------------------------------------------------------------------------- #
+section("Live explorer", "Temperature × air quality over time ▶")
+anim = w.merge(a.rename(columns={"air_quality_date": "weather_date"}),
+               on=["city_name", "weather_date"], how="inner")
+if not anim.empty:
+    anim = anim.sort_values("weather_date")
+    anim["day"] = anim["weather_date"].dt.strftime("%d %b")
+    anim["precip_size"] = anim["precipitation_sum"].clip(lower=0) + 2
+    show_labels = len(selected_cities) <= 8
+    fig_anim = px.scatter(
+        anim, x="temperature_2m_mean", y="avg_european_aqi",
+        animation_frame="day", animation_group="city_name",
+        color="city_name", size="precip_size", size_max=34,
+        color_discrete_sequence=CITY_COLORS, text="city_name" if show_labels else None,
+        range_x=[anim["temperature_2m_mean"].min() - 2, anim["temperature_2m_mean"].max() + 2],
+        range_y=[max(0, anim["avg_european_aqi"].min() - 8), anim["avg_european_aqi"].max() + 8],
+        labels={"temperature_2m_mean": "Mean temp (°C)", "avg_european_aqi": "European AQI",
+                "city_name": "City"},
+    )
+    if show_labels:
+        fig_anim.update_traces(textposition="top center", textfont=dict(size=10, color=MUTED))
+    fig_anim.update_layout(transition={"duration": 300})
+    st.plotly_chart(style_fig(fig_anim, height=440), width="stretch")
+    st.caption("Press ▶ to watch each city drift through the period. Bubble size = daily precipitation.")
+else:
+    st.info("No overlapping weather + air-quality days in range.")
+
+
+# --------------------------------------------------------------------------- #
+# Climate: gradient area + radar
+# --------------------------------------------------------------------------- #
+section("Climate", "Trends & profiles")
 c_left, c_right = st.columns([1.15, 1])
 with c_left:
-    st.subheader("Daily mean temperature")
     fig_area = go.Figure()
     for i, city in enumerate(sorted(w["city_name"].unique())):
         d = w[w["city_name"] == city].sort_values("weather_date")
         color = CITY_COLORS[i % len(CITY_COLORS)]
         fig_area.add_trace(go.Scatter(
-            x=d["weather_date"], y=d["temperature_2m_mean"], name=city,
-            mode="lines", line=dict(color=color, width=2.5, shape="spline"),
-            fill="tozeroy", fillcolor=_rgba(color, 0.12),
+            x=d["weather_date"], y=d["temperature_2m_mean"], name=city, mode="lines",
+            line=dict(color=color, width=2.5, shape="spline"), fill="tozeroy",
+            fillcolor=_rgba(color, 0.10),
         ))
     fig_area.update_layout(legend=dict(orientation="h", y=1.04, x=0))
     st.plotly_chart(style_fig(fig_area, height=360), width="stretch")
-
 with c_right:
-    st.subheader("City profiles")
     metrics = ["Warmth", "Comfort", "Clean air", "Calm", "Dry"]
     radar = go.Figure()
     aqi_max = max(ranking["avg_european_aqi"].fillna(0).max(), 1)
-    for i, (_, r) in enumerate(ranking.iterrows()):
+    radar_cities = ranking.head(8)  # radar is unreadable beyond ~8 overlays
+    for i, (_, r) in enumerate(radar_cities.iterrows()):
         warmth = min(100, max(0, (r["avg_temp"] / 30) * 100))
         comfort = r["comfort_score"]
-        clean = 100 - min(100, (r["avg_european_aqi"] if pd.notna(r["avg_european_aqi"]) else 0)
-                          / aqi_max * 100)
+        clean = 100 - min(100, (r["avg_european_aqi"] if pd.notna(r["avg_european_aqi"]) else 0) / aqi_max * 100)
         calm = 100 - (r["windy_days"] / r["days"] * 100)
         dry = 100 - (r["rainy_days"] / r["days"] * 100)
         color = CITY_COLORS[i % len(CITY_COLORS)]
         radar.add_trace(go.Scatterpolar(
             r=[warmth, comfort, clean, calm, dry], theta=metrics, fill="toself",
-            name=r["city_name"], line=dict(color=color, width=2),
-            fillcolor=_rgba(color, 0.10),
+            name=r["city_name"], line=dict(color=color, width=2), fillcolor=_rgba(color, 0.08),
         ))
     radar.update_layout(
-        template="plotly_dark", height=360, paper_bgcolor="rgba(0,0,0,0)",
-        font=dict(family="JetBrains Mono", size=11, color=TEXT),
+        template="plotly_white", height=360, paper_bgcolor="rgba(0,0,0,0)",
+        font=dict(family="JetBrains Mono", size=11, color=INK),
         margin=dict(l=30, r=30, t=40, b=20),
         polar=dict(bgcolor="rgba(0,0,0,0)",
-                   radialaxis=dict(range=[0, 100], gridcolor="#20202A", showticklabels=False),
-                   angularaxis=dict(gridcolor="#20202A")),
+                   radialaxis=dict(range=[0, 100], gridcolor="#ECEAE2", showticklabels=False),
+                   angularaxis=dict(gridcolor="#D9D6CC")),
         legend=dict(orientation="h", y=1.12, x=0),
     )
     st.plotly_chart(radar, width="stretch")
+    if len(ranking) > len(radar_cities):
+        st.caption(f"Radar shows the top {len(radar_cities)} of {len(ranking)} cities by comfort.")
 
 
 # --------------------------------------------------------------------------- #
-# Heatmap + day types
+# Detail: heatmap + day types
 # --------------------------------------------------------------------------- #
-h_left, h_right = st.columns([1.2, 1])
-with h_left:
-    st.subheader("Daily temperature heatmap")
+section("Detail", "Daily breakdown")
+d_left, d_right = st.columns([1.2, 1])
+with d_left:
     pivot = w.pivot_table(index="city_name", columns="weather_date",
                           values="temperature_2m_mean", aggfunc="mean")
-    fig_heat = px.imshow(
-        pivot, color_continuous_scale=HEAT_SCALE, aspect="auto",
-        labels={"x": "", "y": "", "color": "°C"},
-    )
+    fig_heat = px.imshow(pivot, color_continuous_scale=HEAT_SCALE, aspect="auto",
+                         labels={"x": "", "y": "", "color": "°C"})
     fig_heat.update_xaxes(showticklabels=True, tickformat="%d %b", nticks=10)
     st.plotly_chart(style_fig(fig_heat, height=300), width="stretch")
-
-with h_right:
-    st.subheader("Day types")
+with d_right:
     melted = ranking.melt(
         id_vars="city_name",
         value_vars=["comfortable_days", "rainy_days", "windy_days", "hot_days"],
@@ -498,8 +527,7 @@ with h_right:
     })
     fig_stack = px.bar(
         melted, x="city_name", y="day_count", color="condition",
-        color_discrete_map={"Comfortable": GREEN, "Rainy": CYAN,
-                            "Windy": MUTED, "Hot": TERRACOTTA},
+        color_discrete_map={"Comfortable": GREEN, "Rainy": COBALT, "Windy": MUTED, "Hot": TERRACOTTA},
         labels={"city_name": "", "day_count": "Days", "condition": ""},
     )
     fig_stack.update_layout(legend=dict(orientation="h", y=1.06, x=0))
@@ -507,13 +535,12 @@ with h_right:
 
 
 # --------------------------------------------------------------------------- #
-# Table + definitions
+# Table + definitions + footer
 # --------------------------------------------------------------------------- #
-st.subheader("City comfort table")
+section("Reference", "City comfort table")
 table = ranking[[
     "city_name", "days", "avg_temp", "comfortable_days", "rainy_days",
-    "windy_days", "hot_days", "comfort_score", "avg_european_aqi",
-    "overall_comfort_index",
+    "windy_days", "hot_days", "comfort_score", "avg_european_aqi", "overall_comfort_index",
 ]].rename(columns={
     "city_name": "City", "days": "Days", "avg_temp": "Avg °C",
     "comfortable_days": "Comfortable", "rainy_days": "Rainy", "windy_days": "Windy",
@@ -538,7 +565,9 @@ with st.expander("METRIC DEFINITIONS"):
     )
 
 st.markdown(
-    f"""<p class="footnote">SOURCE: OPEN-METEO APIS → DBT (STAGING → INTERMEDIATE → MARTS)
-    ON DUCKDB. READS ONLY FROM THE <b style="color:{TERRACOTTA}">MART</b> MODELS.</p>""",
+    f"""<div class="footer footnote">
+    CITY COMFORT INDEX · SOURCE: OPEN-METEO APIS → DBT (STAGING → INTERMEDIATE → MARTS) ON DUCKDB.
+    THIS DASHBOARD READS ONLY FROM THE <b style="color:{TERRACOTTA}">MART</b> MODELS, NEVER THE RAW FILES.
+    </div>""",
     unsafe_allow_html=True,
 )

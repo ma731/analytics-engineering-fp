@@ -31,21 +31,58 @@ FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
 AIR_QUALITY_URL = "https://air-quality-api.open-meteo.com/v1/air-quality"
 
 DEFAULT_CITIES = [
-    "Madrid", "Barcelona", "Valencia", "Sevilla", "Bilbao",
-    "Toledo", "Albacete", "Ciudad Real", "Cuenca", "Guadalajara",
-    "Almería", "Cádiz", "Córdoba", "Granada", "Huelva", "Jaén", "Málaga",
-    "Huesca", "Teruel", "Zaragoza",
-    "Oviedo", "Palma de Mallorca",
-    "San Sebastián", "Vitoria-Gasteiz", "Santander",
-    "Ávila", "Burgos", "León", "Palencia", "Salamanca",
-    "Segovia", "Soria", "Valladolid", "Zamora",
-    "Girona", "Lleida", "Tarragona",
-    "Badajoz", "Cáceres",
-    "A Coruña", "Lugo", "Ourense", "Pontevedra",
-    "Logroño", "Murcia", "Pamplona",
-    "Alicante", "Castellón de la Plana",
-    "Las Palmas de Gran Canaria", "Santa Cruz de Tenerife",
-    "Ceuta", "Melilla",
+    "Madrid",
+    "Barcelona",
+    "Valencia",
+    "Sevilla",
+    "Bilbao",
+    "Toledo",
+    "Albacete",
+    "Ciudad Real",
+    "Cuenca",
+    "Guadalajara",
+    "Almeria",
+    "Cadiz",
+    "Cordoba",
+    "Granada",
+    "Huelva",
+    "Jaen",
+    "Malaga",
+    "Huesca",
+    "Teruel",
+    "Zaragoza",
+    "Oviedo",
+    "Palma",
+    "San Sebastian",
+    "Vitoria-Gasteiz",
+    "Santander",
+    "Avila",
+    "Burgos",
+    "Leon",
+    "Palencia",
+    "Salamanca",
+    "Segovia",
+    "Soria",
+    "Valladolid",
+    "Zamora",
+    "Girona",
+    "Lleida",
+    "Tarragona",
+    "Badajoz",
+    "Caceres",
+    "A Coruna",
+    "Lugo",
+    "Ourense",
+    "Pontevedra",
+    "Logrono",
+    "Murcia",
+    "Pamplona",
+    "Alicante",
+    "Castellon de la Plana",
+    "Las Palmas de Gran Canaria",
+    "Santa Cruz de Tenerife",
+    "Ceuta",
+    "Melilla",
 ]
 DEFAULT_DAILY_WEATHER_VARIABLES = [
     "temperature_2m_max",
@@ -73,8 +110,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--cities",
         nargs="+",
-        default=DEFAULT_CITIES,
-        help="City names to search in the Open-Meteo Geocoding API.",
+        default=None,
+        help="Optional city names to search in the Open-Meteo Geocoding API. If omitted, --city-csv is used.",
+    )
+    parser.add_argument(
+        "--city-csv",
+        default="spain_cities.csv",
+        help="CSV of Spanish cities with coordinates. Used by default instead of geocoding city names.",
     )
     parser.add_argument(
         "--past-days",
@@ -138,12 +180,38 @@ def get_ssl_context() -> ssl.SSLContext:
     return ssl.create_default_context(cafile=certifi.where())
 
 
+def load_locations_from_city_csv(path: Path) -> list[dict[str, Any]]:
+    if not path.exists():
+        raise FileNotFoundError(f"City CSV not found: {path}")
+
+    locations = []
+    with path.open(newline="", encoding="utf-8-sig") as file:
+        reader = csv.DictReader(file)
+        for index, row in enumerate(reader, start=1):
+            city_name = row["city_name"].strip()
+            locations.append(
+                {
+                    "location_id": 900000 + index,
+                    "city_name": city_name,
+                    "country": row.get("country") or "Spain",
+                    "country_code": "ES",
+                    "admin1": row.get("province") or None,
+                    "latitude": float(row["latitude"]),
+                    "longitude": float(row["longitude"]),
+                    "timezone": row.get("timezone") or "auto",
+                    "elevation": float(row["elevation_m"]) if row.get("elevation_m") else None,
+                    "population": int(float(row["population"])) if row.get("population") else None,
+                }
+            )
+    return locations
+
+
 def geocode_city(city: str) -> dict[str, Any]:
     data = get_json(
         GEOCODING_URL,
         {
             "name": city,
-            "count": 1,
+            "count": 10,
             "language": "en",
             "format": "json",
         },
@@ -152,10 +220,17 @@ def geocode_city(city: str) -> dict[str, Any]:
     if not results:
         raise ValueError(f"No geocoding result found for city: {city}")
 
-    result = results[0]
+    spanish_results = [result for result in results if result.get("country_code") == "ES"]
+    if not spanish_results:
+        candidates = ", ".join(
+            f"{result.get('name')} ({result.get('country_code')})" for result in results[:5]
+        )
+        raise ValueError(f"No Spanish geocoding result found for city: {city}. Candidates: {candidates}")
+
+    result = spanish_results[0]
     return {
         "location_id": result.get("id"),
-        "city_name": result.get("name"),
+        "city_name": city,
         "country": result.get("country"),
         "country_code": result.get("country_code"),
         "admin1": result.get("admin1"),
@@ -299,9 +374,13 @@ def main() -> int:
     forecast_daily_rows = []
     air_quality_hourly_rows = []
 
-    for city in args.cities:
-        print(f"Extracting {city}...", file=sys.stderr)
-        location = geocode_city(city)
+    if args.cities:
+        extract_locations = [geocode_city(city) for city in args.cities]
+    else:
+        extract_locations = load_locations_from_city_csv(Path(args.city_csv))
+
+    for location in extract_locations:
+        print(f"Extracting {location['city_name']}...", file=sys.stderr)
         locations.append({**location, "extracted_at": extracted_at})
         time.sleep(args.pause_seconds)
 

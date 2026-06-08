@@ -220,10 +220,24 @@ st.markdown(
       @import url('https://fonts.googleapis.com/css2?family=Darker+Grotesque:wght@600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
 
       html, body, [class*="css"] {{ font-family: 'JetBrains Mono', monospace; color: {INK}; }}
-      /* Single cohesive cream canvas with one faint warm accent */
-      .stApp {{ background:
-          radial-gradient(1000px 400px at 90% -8%, rgba(221,97,76,.07), transparent 60%),
-          {CREAM}; }}
+      /* Cool layered canvas: faint weather-chart grid + slow-drifting warm/cool/green glows */
+      .stApp {{
+        background-color: {CREAM};
+        background-image:
+          linear-gradient(rgba(17,24,39,.035) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(17,24,39,.035) 1px, transparent 1px),
+          radial-gradient(900px 430px at 12% -6%, rgba(221,97,76,.10), transparent 60%),
+          radial-gradient(820px 470px at 92% 6%, rgba(37,99,235,.09), transparent 62%),
+          radial-gradient(760px 520px at 78% 104%, rgba(22,163,74,.07), transparent 60%);
+        background-size: 44px 44px, 44px 44px, 140% 140%, 140% 140%, 140% 140%;
+        background-attachment: fixed;
+        animation: bgShift 30s ease-in-out infinite alternate;
+      }}
+      @keyframes bgShift {{
+        from {{ background-position: 0 0, 0 0, 0% 0%, 100% 0%, 80% 100%; }}
+        to   {{ background-position: 0 0, 0 0, 12% 9%, 86% 8%, 70% 94%; }}
+      }}
+      @media (prefers-reduced-motion: reduce) {{ .stApp {{ animation: none; }} }}
       /* Website feel: hide Streamlit chrome */
       #MainMenu, footer {{ visibility: hidden; }}
       [data-testid="stToolbar"] {{ display: none; }}

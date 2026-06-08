@@ -426,7 +426,12 @@ with o_left:
     )
     fig_rank.update_traces(textposition="outside", cliponaxis=False, textfont=dict(color=INK))
     fig_rank.update_layout(coloraxis_showscale=False, yaxis={"categoryorder": "total ascending"})
-    st.plotly_chart(style_fig(fig_rank, height=rank_height, bars=True), width="stretch")
+    fig_rank = style_fig(fig_rank, height=rank_height, bars=True)
+    # extend the x-axis and right margin so the longest bar's value label isn't clipped
+    xmax = ranking["overall_comfort_index"].max()
+    fig_rank.update_xaxes(range=[ranking["overall_comfort_index"].min() - 3, xmax + max(6, xmax * 0.18)])
+    fig_rank.update_layout(margin=dict(l=10, r=40, t=30, b=10))
+    st.plotly_chart(fig_rank, width="stretch")
     if rank_note:
         st.caption(rank_note)
 with o_right:
@@ -487,8 +492,7 @@ with c_left:
         color = CITY_COLORS[i % len(CITY_COLORS)]
         fig_area.add_trace(go.Scatter(
             x=d["weather_date"], y=d["temperature_2m_mean"], name=city, mode="lines",
-            line=dict(color=color, width=2.5, shape="spline"), fill="tozeroy",
-            fillcolor=_rgba(color, 0.10),
+            line=dict(color=color, width=2.6, shape="spline"),
         ))
     fig_area.update_layout(legend=dict(orientation="h", y=1.04, x=0))
     st.plotly_chart(style_fig(fig_area, height=360), width="stretch")
@@ -511,11 +515,11 @@ with c_right:
     radar.update_layout(
         template="plotly_white", height=360, paper_bgcolor="rgba(0,0,0,0)",
         font=dict(family="JetBrains Mono", size=11, color=INK),
-        margin=dict(l=30, r=30, t=40, b=20),
+        margin=dict(l=70, r=70, t=55, b=45),
         polar=dict(bgcolor="rgba(0,0,0,0)",
                    radialaxis=dict(range=[0, 100], gridcolor="#ECEAE2", showticklabels=False),
-                   angularaxis=dict(gridcolor="#D9D6CC")),
-        legend=dict(orientation="h", y=1.12, x=0),
+                   angularaxis=dict(gridcolor="#D9D6CC", tickfont=dict(size=10))),
+        legend=dict(orientation="h", y=1.14, x=0),
     )
     st.plotly_chart(radar, width="stretch")
     if len(ranking) > len(radar_cities):

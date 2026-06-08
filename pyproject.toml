@@ -15,7 +15,7 @@ dependencies = [
     "certifi",
     "pandas",
     "pyarrow",
-    "streamlit>=1.30",
+    "streamlit>=1.37",
     "plotly>=5.18",
 ]
 

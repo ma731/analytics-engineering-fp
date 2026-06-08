@@ -40,17 +40,10 @@ jobs:
         run: uv run python scripts/load_to_duckdb.py
 
       - name: Lint SQL (sqlfluff)
-        # Marts (models/marts/*.sql) are still empty placeholders owned by Role 3;
-        # the dbt templater can't compile an empty model, so sqlfluff errors (TMP)
-        # on them. Lint the implemented layers; widen once the marts are filled in.
         run: uv run sqlfluff lint models/staging models/intermediate
 
       - name: Python unit tests
         run: uv run pytest tests_python --cov=extract_open_meteo --cov-report=term-missing --cov-fail-under=80
 
-      - name: dbt build (dev target)
-        # The marts layer (models/marts/*.sql) is still empty placeholders owned
-        # by Role 3; building an empty model errors. Scope to the layers that are
-        # implemented and integrate with the raw data this pipeline produces.
-        # Drop the selector once the marts are filled in.
-        run: uv run dbt build --target dev -s staging intermediate
+      - name: dbt build (dev target — all models + tests)
+        run: uv run dbt build --target dev

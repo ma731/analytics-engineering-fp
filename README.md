@@ -3,9 +3,9 @@
 Final project for **Analytics Engineering @ IE School of Science and Technology**.
 
 An end-to-end analytics pipeline over [Open-Meteo](https://open-meteo.com/) data for
-58 Spanish cities from `spain_cities.csv`, including province capitals and additional major cities:
+58 Spanish cities (from `spain_cities.csv` — province capitals plus additional major cities):
 
-**Open-Meteo APIs 鈫?Python extraction 鈫?DuckDB 鈫?dbt (staging 鈫?intermediate 鈫?marts) 鈫?Streamlit dashboard.**
+**Open-Meteo APIs → Python extraction → DuckDB → dbt (staging → intermediate → marts) → Streamlit dashboard.**
 
 ![City Comfort Index dashboard](docs/dashboard.png)
 
@@ -13,12 +13,12 @@ An end-to-end analytics pipeline over [Open-Meteo](https://open-meteo.com/) data
 
 ---
 
-## TL;DR 鈥?run it in four commands
+## TL;DR — run it in four commands
 
 ```bash
 uv sync                                  # install dependencies (or: pip install -e .)
 python scripts/load_to_duckdb.py         # load the committed raw CSVs into DuckDB
-dbt deps && dbt build                     # build all models + run all tests
+dbt deps && dbt build                    # build all models + run all tests
 python -m streamlit run streamlit_app/app.py   # launch the dashboard
 ```
 
@@ -48,7 +48,7 @@ python scripts/extract_open_meteo.py --cities Madrid Barcelona Valencia Sevilla 
 > those committed CSVs, so the numbers always match. Re-running the extractor pulls a
 > comparable national set from the live API — use the committed CSVs to reproduce exactly.
 
-Or run the whole pipeline (extract -> load -> dbt build) in one command:
+Or run the whole pipeline (extract → load → dbt build) in one command:
 
 ```bash
 bash scripts/run_pipeline.sh              # full run
@@ -95,9 +95,9 @@ python -m streamlit run streamlit_app/app.py
 ```
 
 The dashboard (the **City Comfort Index**) has a light "brutalist website" design with a sticky nav,
-a terracotta hero, gauge instruments, an animated play-button scatter, a gradient trend, a radar,
-a heatmap and a map. It has a city filter (with a "show all 58 cities" toggle), a date filter, and
-reads **only from the mart models**, never the raw files.
+a terracotta hero, a City Spotlight photo carousel, gauge instruments, an animated play-button
+scatter, a gradient trend, a radar, a heatmap and a map. It has a city filter (with a "show all 58
+cities" toggle), a date filter, and reads **only from the mart models**, never the raw files.
 
 ## 5. What final models power the dashboard?
 
@@ -113,7 +113,9 @@ reads **only from the mart models**, never the raw files.
 
 Short version below; the full write-up is in [`docs/modeling_decisions.md`](docs/modeling_decisions.md).
 
-- **Three-layer architecture.** Staging (rename + cast, same grain as source) 鈫?  intermediate (joins, daily aggregation, derived flags, forecast alignment) 鈫?  marts (star schema: one conformed `dim_location` + grain-explicit facts + one wide summary).
+- **Three-layer architecture.** Staging (rename + cast, same grain as source) → intermediate
+  (joins, daily aggregation, derived flags, forecast alignment) → marts (star schema: one
+  conformed `dim_location` + grain-explicit facts + one wide summary).
 - **Surrogate keys everywhere** via `dbt_utils.generate_surrogate_key`, so facts reference
   `dim_location.location_sk` and every fact has a `relationships` test back to the dimension.
 - **Comfort metrics defined in SQL, not the app.** `is_comfortable`, `comfort_score` and
@@ -127,65 +129,60 @@ Short version below; the full write-up is in [`docs/modeling_decisions.md`](docs
 
 ```text
 analytics-engineering-fp/
-鈹溾攢鈹€ data/raw/open_meteo/        # committed raw CSVs (DuckDB file is git-ignored)
-鈹溾攢鈹€ scripts/
-鈹?  鈹溾攢鈹€ extract_open_meteo.py   # pulls the 4 endpoints 鈫?CSVs
-鈹?  鈹溾攢鈹€ load_to_duckdb.py       # CSVs 鈫?DuckDB raw schema
-鈹?  鈹斺攢鈹€ run_pipeline.sh         # extract 鈫?load 鈫?dbt build, one command
-鈹溾攢鈹€ models/
-鈹?  鈹溾攢鈹€ sources.yml             # 4 registered sources
-鈹?  鈹溾攢鈹€ staging/                # stg_* (4 views) + docs/tests
-鈹?  鈹溾攢鈹€ intermediate/           # int_* (3 views) + docs/tests
-鈹?  鈹斺攢鈹€ marts/                  # dim/fct/mart (5 tables) + docs/tests
-鈹溾攢鈹€ tests/                      # 2 custom singular tests
-鈹溾攢鈹€ streamlit_app/app.py        # City Comfort Index dashboard
-鈹溾攢鈹€ docs/                       # screenshot + modeling_decisions.md
-鈹溾攢鈹€ dbt_project.yml  packages.yml  profiles.yml  pyproject.toml
-鈹斺攢鈹€ README.md
+├── data/raw/open_meteo/        # committed raw CSVs (DuckDB file is git-ignored)
+├── scripts/
+│   ├── extract_open_meteo.py   # pulls the 4 endpoints -> CSVs
+│   ├── load_to_duckdb.py       # CSVs -> DuckDB raw schema
+│   └── run_pipeline.sh         # extract -> load -> dbt build, one command
+├── models/
+│   ├── sources.yml             # 4 registered sources
+│   ├── staging/                # stg_* (4 views) + docs/tests
+│   ├── intermediate/           # int_* (3 views) + docs/tests
+│   └── marts/                  # dim/fct/mart (5 tables) + docs/tests
+├── tests/                      # 2 custom singular tests
+├── streamlit_app/app.py        # City Comfort Index dashboard
+├── docs/                       # screenshots + modeling_decisions.md
+├── dbt_project.yml  packages.yml  profiles.yml  pyproject.toml
+└── README.md
 ```
 
 ## Testing
 
 Tests cover every category the rubric asks for:
 
-- **Primary keys** 鈥?`unique` + `not_null` on every surrogate key (staging 鈫?marts).
-- **Dates / location keys** 鈥?`not_null` on grain columns and foreign keys.
-- **Relationships** 鈥?every fact has a `relationships` FK test to `dim_location`.
-- **Accepted values** 鈥?`country_code` restricted to `ES`.
-- **Ranges** 鈥?`dbt_expectations.expect_column_values_to_be_between` on latitude/longitude,
+- **Primary keys** — `unique` + `not_null` on every surrogate key (staging → marts).
+- **Dates / location keys** — `not_null` on grain columns and foreign keys.
+- **Relationships** — every fact has a `relationships` FK test to `dim_location`.
+- **Accepted values** — `country_code` restricted to `ES`.
+- **Ranges** — `dbt_expectations.expect_column_values_to_be_between` on latitude/longitude,
   temperature, AQI, and comfort score.
-- **Custom singular tests** 鈥?`assert_aqi_non_negative.sql`,
+- **Custom singular tests** — `assert_aqi_non_negative.sql`,
   `assert_temperature_within_realistic_range.sql`.
 
 ## Continuous integration
 
 `.github/workflows/ci.yml` runs on every push and PR:
 
-- **pytest** 鈥?unit tests for the extraction parsers (`tests_python/`)
-- **dbt build** 鈥?loads the committed CSVs, builds all models, runs all 72 tests
-- **lint** (advisory) 鈥?`ruff` for Python, `sqlfluff` for SQL
+- **pytest** — unit tests for the extraction parsers (`tests_python/`)
+- **dbt build** — loads sample data, builds all models, runs all tests
+- **lint** — `ruff` for Python, `sqlfluff` for SQL
 
 Pre-commit hooks (`.pre-commit-config.yaml`) run `ruff`, `sqlfluff`, and whitespace
-fixers locally 鈥?install with `pre-commit install` after `pip install -e ".[dev]"`.
+fixers locally — install with `pre-commit install` after `pip install -e ".[dev]"`.
 
 ## Deploy to Streamlit Community Cloud
 
 1. Push this repo to GitHub.
 2. At [share.streamlit.io](https://share.streamlit.io), create an app pointing at
    `streamlit_app/app.py` on this repo/branch.
-3. The committed DuckDB build step must run in the cloud, so add this to the app's
-   **"Advanced settings 鈫?Python"** or a small startup hook, or commit a prebuilt
-   `data/weather_analytics.duckdb` for the demo. Simplest path: add a top-of-app guard
-   (already present) that errors clearly if the DB is missing, and build it in the deploy
-   command: `python scripts/load_to_duckdb.py && dbt deps && dbt build`.
-4. Set the **custom subdomain** to `city-comfort-index` so the public URL is
+3. Set the **custom subdomain** to `city-comfort-index` so the public URL is
    **https://city-comfort-index.streamlit.app** (already linked at the top of this README).
 
 The repo is deploy-ready: `requirements.txt` lists the runtime deps and a prebuilt
 `data/weather_analytics.duckdb` is committed, so the app runs on Cloud with no build step.
 Every push to the deployed branch auto-redeploys.
 
-## Known limitation 鈥?forecast vs actual
+## Known limitation — forecast vs actual
 
 `fct_forecast_city_day` and `int_forecast_vs_actual` are implemented and tested, but the
 fact is **empty in a single extraction snapshot**: the Forecast API returns *future* dates
@@ -196,4 +193,4 @@ for it is collected by re-running extraction on a schedule.
 
 ## Tech stack
 
-DuckDB 路 dbt Core (with `dbt_utils`, `dbt_expectations`, `dbt_date`) 路 Streamlit 路 Plotly 路 Python.
+DuckDB · dbt Core (with `dbt_utils`, `dbt_expectations`, `dbt_date`) · Streamlit · Plotly · Python.

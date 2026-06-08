@@ -435,7 +435,7 @@ with ctrl_r:
     max_date = weather["weather_date"].max().date()
     date_range = st.slider(
         "Date range", min_value=min_date, max_value=max_date,
-        value=(min_date, max_date), format="DD MMM",
+        value=(min_date, max_date), format="DD MMM YYYY",
     )
 st.caption(f"{len(all_cities)} cities available · {len(selected_cities)} selected")
 if not selected_cities:
@@ -493,7 +493,7 @@ def _zone_now(tz: str) -> str:
 def live_status() -> None:
     spain = _zone_now("Europe/Madrid")       # mainland Spain (CET/CEST)
     canary = _zone_now("Atlantic/Canary")    # Canary Islands (1h behind)
-    span = f"{start_date:%d %b} – {end_date:%d %b}"
+    span = f"{start_date:%d %b %Y} – {end_date:%d %b %Y}"
     st.markdown(
         f"""
         <div class="chips" style="margin:.2rem 0 1.2rem">

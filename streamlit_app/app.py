@@ -21,6 +21,7 @@ import re
 import unicodedata
 from datetime import datetime, timezone
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import duckdb
 import pandas as pd
@@ -357,35 +358,9 @@ weather["weather_date"] = pd.to_datetime(weather["weather_date"])
 aqi["air_quality_date"] = pd.to_datetime(aqi["air_quality_date"])
 
 # --------------------------------------------------------------------------- #
-# Sidebar filters
+# Sidebar (reference only — the city picker lives up top in the main area)
 # --------------------------------------------------------------------------- #
-st.sidebar.header("Filters")
-all_cities = sorted(summary["city_name"].tolist())
-MAJOR_CITIES = ["Madrid", "Barcelona", "Valencia", "Sevilla", "Bilbao"]
-default_cities = [c for c in MAJOR_CITIES if c in all_cities] or all_cities
-
-show_all = st.sidebar.checkbox(f"Show all {len(all_cities)} cities", value=False)
-if show_all:
-    selected_cities = all_cities
-else:
-    selected_cities = st.sidebar.multiselect(
-        "Cities", options=all_cities, default=default_cities,
-        help=f"Type to add any of the {len(all_cities)} Spanish cities.",
-    )
-st.sidebar.caption(f"{len(all_cities)} available · {len(selected_cities)} selected")
-if not selected_cities:
-    st.warning("Select at least one city to see the dashboard.")
-    st.stop()
-
-min_date = weather["weather_date"].min().date()
-max_date = weather["weather_date"].max().date()
-date_range = st.sidebar.slider(
-    "Date range", min_value=min_date, max_value=max_date,
-    value=(min_date, max_date), format="DD MMM",
-)
-start_date, end_date = pd.Timestamp(date_range[0]), pd.Timestamp(date_range[1])
-
-st.sidebar.markdown("---")
+st.sidebar.header("About")
 st.sidebar.markdown(
     """
     <div class="footnote">
@@ -401,6 +376,57 @@ st.sidebar.markdown(
     """,
     unsafe_allow_html=True,
 )
+
+# --------------------------------------------------------------------------- #
+# Top bar + hero
+# --------------------------------------------------------------------------- #
+st.markdown(
+    '<div class="topbar"><div class="wordmark"><span class="sq"></span>CITY COMFORT INDEX</div>'
+    '<div class="chip muted">OPEN-METEO · DBT · DUCKDB</div></div>',
+    unsafe_allow_html=True,
+)
+st.markdown(
+    """
+    <div class="hero">
+      <h1>City Comfort Index</h1>
+      <p>HOW PLEASANT IS THE WEATHER ACROSS SPAIN'S LARGEST CITIES? A LIVE COMFORT,
+      CLIMATE AND AIR-QUALITY VIEW BUILT ON OPEN-METEO DATA — STRAIGHT FROM THE DBT MARTS.</p>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+# --------------------------------------------------------------------------- #
+# Controls — prominent city picker + date range at the top of the page
+# --------------------------------------------------------------------------- #
+all_cities = sorted(summary["city_name"].tolist())
+MAJOR_CITIES = ["Madrid", "Barcelona", "Valencia", "Sevilla", "Bilbao"]
+default_cities = [c for c in MAJOR_CITIES if c in all_cities] or all_cities
+
+section("Controls", "Choose cities to display")
+ctrl_l, ctrl_r = st.columns([2.1, 1])
+with ctrl_l:
+    show_all = st.checkbox(f"Show all {len(all_cities)} cities", value=False)
+    if show_all:
+        selected_cities = all_cities
+    else:
+        selected_cities = st.multiselect(
+            "Cities on the dashboard",
+            options=all_cities, default=default_cities,
+            help=f"Type a name to add any of the {len(all_cities)} Spanish cities.",
+        )
+with ctrl_r:
+    min_date = weather["weather_date"].min().date()
+    max_date = weather["weather_date"].max().date()
+    date_range = st.slider(
+        "Date range", min_value=min_date, max_value=max_date,
+        value=(min_date, max_date), format="DD MMM",
+    )
+st.caption(f"{len(all_cities)} cities available · {len(selected_cities)} selected")
+if not selected_cities:
+    st.warning("Pick at least one city above to see the dashboard.")
+    st.stop()
+start_date, end_date = pd.Timestamp(date_range[0]), pd.Timestamp(date_range[1])
 
 # --------------------------------------------------------------------------- #
 # Apply filters
@@ -440,34 +466,25 @@ ranking["overall_comfort_index"] = (
 ranking = ranking.sort_values("overall_comfort_index", ascending=False)
 best_city = ranking.iloc[0]
 
-# --------------------------------------------------------------------------- #
-# Top bar + hero
-# --------------------------------------------------------------------------- #
-st.markdown(
-    '<div class="topbar"><div class="wordmark"><span class="sq"></span>CITY COMFORT INDEX</div>'
-    '<div class="chip muted">OPEN-METEO · DBT · DUCKDB</div></div>',
-    unsafe_allow_html=True,
-)
-st.markdown(
-    """
-    <div class="hero">
-      <h1>City Comfort Index</h1>
-      <p>HOW PLEASANT IS THE WEATHER ACROSS SPAIN'S LARGEST CITIES? A LIVE COMFORT,
-      CLIMATE AND AIR-QUALITY VIEW BUILT ON OPEN-METEO DATA — STRAIGHT FROM THE DBT MARTS.</p>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
+def _zone_now(tz: str) -> str:
+    """Current HH:MM:SS in an IANA timezone; falls back to UTC if tzdata is missing."""
+    try:
+        return datetime.now(ZoneInfo(tz)).strftime("%H:%M:%S")
+    except Exception:
+        return datetime.now(timezone.utc).strftime("%H:%M:%S") + " UTC"
 
 
-@st.fragment(run_every="2s")
+@st.fragment(run_every="1s")
 def live_status() -> None:
-    now = datetime.now(timezone.utc).strftime("%H:%M:%S UTC")
+    spain = _zone_now("Europe/Madrid")       # mainland Spain (CET/CEST)
+    canary = _zone_now("Atlantic/Canary")    # Canary Islands (1h behind)
     span = f"{start_date:%d %b} – {end_date:%d %b}"
     st.markdown(
         f"""
-        <div class="chips" style="margin:-0.6rem 0 1.2rem">
-          <span class="chip"><span class="dot"></span>LIVE · {now}</span>
+        <div class="chips" style="margin:.2rem 0 1.2rem">
+          <span class="chip"><span class="dot"></span>LIVE</span>
+          <span class="chip muted">🇪🇸 SPAIN {spain}</span>
+          <span class="chip muted">🏝️ CANARY {canary}</span>
           <span class="chip muted">MONITORING {len(selected_cities)} CITIES</span>
           <span class="chip muted">WINDOW {span}</span>
           <span class="chip muted">{len(w):,} CITY-DAYS</span>

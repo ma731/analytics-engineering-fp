@@ -17,6 +17,7 @@ dependencies = [
     "pyarrow",
     "streamlit>=1.37",
     "plotly>=5.18",
+    "tzdata",
 ]
 
 [project.optional-dependencies]

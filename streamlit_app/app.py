@@ -19,6 +19,7 @@ from __future__ import annotations
 import base64
 import re
 import unicodedata
+import urllib.parse
 from datetime import datetime, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -252,8 +253,10 @@ st.markdown(
         color:#fff; padding:.3rem .6rem; font-size:.75rem; font-weight:700; }}
       .thumb {{ width:100%; height:78px; object-fit:cover; border:2px solid {INK}; display:block; }}
       /* Spotlight chips + the City Hall link share one colour (white), never browser-blue */
-      .spot-stat, a.spot-stat, a.spot-stat:link, a.spot-stat:visited, a.spot-stat:hover {{
+      .spot-stat, a.spot-stat, a.spot-stat:link, a.spot-stat:visited, a.spot-stat:hover,
+      a.spot-play, a.spot-play:link, a.spot-play:visited, a.spot-play:hover {{
         color:#fff !important; text-decoration:none !important; }}
+      a.spot-play {{ cursor:pointer; }}
 
       /* "At a glance" meter cards (replace the gauges) */
       .meter-card {{ background:{PAPER}; border:3px solid {INK}; box-shadow:6px 6px 0 {INK};
@@ -524,10 +527,13 @@ def city_spotlight() -> None:
         f'<a class="spot-stat" style="text-decoration:none" href="{gov}" '
         f'target="_blank" rel="noopener">CITY HALL &#8599;</a>'
     ) if gov else ""
+    video_url = ("https://www.youtube.com/results?search_query="
+                 + urllib.parse.quote_plus(f"{city} turismo oficial vídeo"))
     st.markdown(
         f"""
         <div class="spotlight" style="background-image:{bg};">
-          <div class="spot-play">&#9654;</div>
+          <a class="spot-play" href="{video_url}" target="_blank" rel="noopener"
+             title="Watch {city} tourism video">&#9654;</a>
           <div class="spot-inner">
             <div class="spot-kicker">City spotlight &middot; {idx + 1}/{n} &middot; from your selection</div>
             <div class="spot-city">{city}</div>
@@ -537,6 +543,8 @@ def city_spotlight() -> None:
               <span class="spot-stat">COMFORT {comfort}</span>
               <span class="spot-stat">AQI {aqi}</span>
               {gov_chip}
+              <a class="spot-stat" style="text-decoration:none" href="{video_url}"
+                 target="_blank" rel="noopener">&#9654; VIDEO</a>
             </div>
           </div>
         </div>
@@ -633,14 +641,19 @@ with o_left:
     if rank_note:
         st.caption(rank_note)
 with o_right:
-    map_df = s.copy()
+    # Use the date-filtered ranking (not whole-window summary) so the map and the
+    # ranking bar always agree; pull coordinates/population from dim/summary.
+    map_df = ranking.merge(
+        s[["city_name", "latitude", "longitude", "population"]],
+        on="city_name", how="left",
+    )
     map_df["size"] = map_df["population"].clip(lower=1).pow(0.5)
     fig_map = px.scatter_mapbox(
         map_df, lat="latitude", lon="longitude", color="overall_comfort_index",
         size="size", hover_name="city_name", size_max=30, zoom=4.3,
         color_continuous_scale=COMFORT_SCALE,
         hover_data={"latitude": False, "longitude": False, "size": False,
-                    "overall_comfort_index": True, "avg_temperature_c": True},
+                    "overall_comfort_index": ":.1f", "avg_temp": ":.1f"},
     )
     fig_map.update_layout(mapbox_style="carto-positron", height=340,
                           margin=dict(l=0, r=0, t=30, b=0), paper_bgcolor="rgba(0,0,0,0)",

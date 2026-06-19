@@ -59,7 +59,9 @@ models:
     description: >
       Daily temperature anomaly. Grain: one row per city per day. Each day's mean
       temperature is compared to that city's seasonal average (window functions);
-      anomaly_z is the deviation in standard deviations.
+      anomaly_z is the deviation in standard deviations. Days are flagged extreme
+      via the extreme_anomaly_stddev var (default 2) rather than a fixed-degree
+      cutoff, so the rule stays statistically grounded and reproducible.
     columns:
       - name: anomaly_sk
         description: "Surrogate primary key (one row per city per day)."
@@ -91,3 +93,7 @@ models:
         description: "Mean temperature minus the city's seasonal average (Celsius)."
       - name: anomaly_z
         description: "Anomaly expressed in standard deviations from the seasonal mean."
+      - name: is_extreme_day
+        description: >
+          True when |anomaly_z| is at least the extreme_anomaly_stddev var
+          (default 2 standard deviations from the city's seasonal mean).

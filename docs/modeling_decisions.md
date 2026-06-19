@@ -119,7 +119,11 @@ The project goes past data tests to also test the *logic* and lock down the *int
 `mart_city_month_summary` rolls comfort to one row per city per calendar month, which the planner uses
 to name each city's "best month to visit". `mart_temperature_anomaly` compares each day's temperature
 to that city's seasonal average with window functions, expressing the deviation as a z-score — the
-basis for the "unusually warm/cold days" view.
+basis for the "unusually warm/cold days" view. A day is flagged `is_extreme_day` when `|anomaly_z|`
+reaches the `extreme_anomaly_stddev` var (`dbt_project.yml`, default 2 standard deviations). Driving
+the cutoff off the standard deviation rather than a fixed degree threshold keeps it statistically
+meaningful across cities and seasons with different temperature variability, and keeping it in a var
+means the rule is defined once and reproducible instead of a magic number copy-pasted into SQL.
 
 ## Incremental forecast
 

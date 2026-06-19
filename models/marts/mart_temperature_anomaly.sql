@@ -2,6 +2,9 @@
 -- Each day's mean temperature is compared against that city's average for the
 -- same meteorological season, using window functions. anomaly_z expresses the
 -- deviation in standard deviations (a "how unusual was this day" score).
+-- is_extreme_day flags days at or beyond the extreme_anomaly_stddev var
+-- (default 2 standard deviations) instead of a hardcoded degree threshold,
+-- so the cutoff is statistically grounded and reproducible across cities/seasons.
 
 with daily as (
 
@@ -37,6 +40,8 @@ select
     temperature_2m_mean,
     round(season_mean, 1) as season_mean_c,
     round(temperature_2m_mean - season_mean, 1) as anomaly_c,
-    round((temperature_2m_mean - season_mean) / nullif(season_sd, 0), 2) as anomaly_z
+    round((temperature_2m_mean - season_mean) / nullif(season_sd, 0), 2) as anomaly_z,
+    abs(temperature_2m_mean - season_mean) / nullif(season_sd, 0)
+        >= {{ var('extreme_anomaly_stddev', 2) }} as is_extreme_day
 
 from stats

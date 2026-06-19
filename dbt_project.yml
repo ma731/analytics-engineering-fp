@@ -26,3 +26,10 @@ models:
       +persist_docs:
         relation: true
         columns: true
+
+vars:
+  # Number of standard deviations from the seasonal mean a day's temperature
+  # must deviate by to be flagged extreme in mart_temperature_anomaly. Defined
+  # once here so the rule is reproducible/overridable rather than a magic
+  # number buried in SQL.
+  extreme_anomaly_stddev: 2
